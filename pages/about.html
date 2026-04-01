@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>About Us — CampusConnect</title>
+  <meta name="description" content="Learn about CampusConnect — the platform connecting students, clubs, and events across campus. Meet our mission, values, and team."/>
+  <link rel="stylesheet" href="../css/style.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+  <style>
+    /* ── PAGE HERO ── */
+    .about-hero {
+      min-height: 55vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 7rem 2rem 4rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .about-hero .orb {
+      position: absolute; border-radius: 50%;
+      filter: blur(80px); pointer-events: none;
+    }
+    .orb1 { width: 500px; height: 500px; background: rgba(108,99,255,.18); top: -120px; left: -180px; animation: floatA 9s ease-in-out infinite; }
+    .orb2 { width: 350px; height: 350px; background: rgba(67,230,181,.12); bottom: -60px; right: -80px; animation: floatB 11s ease-in-out infinite; }
+    @keyframes floatA { 0%,100%{transform:translate(0,0)} 50%{transform:translate(30px,20px)} }
+    @keyframes floatB { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-20px,25px)} }
+    .about-badge {
+      display: inline-flex; align-items: center; gap: .5rem;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 100px; padding: .4rem 1rem;
+      font-size: .8rem; color: var(--accent3); margin-bottom: 1.5rem;
+      animation: fadeUp .5s ease both;
+    }
+    .about-hero-title {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(2.4rem, 6vw, 4.5rem);
+      font-weight: 800; letter-spacing: -2px; line-height: 1.08;
+      animation: fadeUp .6s ease .1s both;
+    }
+    .gradient-text {
+      background: linear-gradient(135deg, var(--accent), var(--accent2), var(--accent3));
+      background-size: 200%;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      animation: gradShift 4s ease infinite;
+    }
+    @keyframes gradShift { 0%,100%{background-position:0%} 50%{background-position:100%} }
+    .about-hero-sub {
+      max-width: 540px; margin: 1.5rem auto 0;
+      color: var(--text2); font-size: 1.05rem; line-height: 1.75;
+      animation: fadeUp .6s ease .2s both;
+    }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+
+    /* ── SECTIONS ── */
+    .section { padding: 6rem 0; position: relative; z-index: 1; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 2rem; }
+    .section-label { display: inline-block; font-size: .75rem; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin-bottom: .8rem; }
+    .section-title { font-family: 'Syne', sans-serif; font-size: clamp(1.8rem, 3.5vw, 2.6rem); font-weight: 800; letter-spacing: -1px; line-height: 1.15; }
+    .section-sub { color: var(--text2); margin-top: .8rem; line-height: 1.75; max-width: 560px; }
+
+    /* ── MISSION GRID ── */
+    .mission-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
+    .mission-visual {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 24px; padding: 2.5rem;
+      position: relative; overflow: hidden;
+    }
+    .mission-visual::before {
+      content: ''; position: absolute; top: -40px; right: -40px;
+      width: 180px; height: 180px; border-radius: 50%;
+      background: rgba(108,99,255,.12); filter: blur(50px);
+    }
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
+    .stat-box {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 16px; padding: 1.4rem; text-align: center;
+    }
+    .stat-num-lg {
+      font-family: 'Syne', sans-serif; font-size: 2rem; font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), var(--accent3));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .stat-lbl { font-size: .8rem; color: var(--text2); margin-top: .3rem; }
+
+    /* ── VALUES ── */
+    .values-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 1.5rem; }
+    .value-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; padding: 2rem;
+      transition: all .3s; position: relative; overflow: hidden;
+    }
+    .value-card::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(108,99,255,.07), transparent);
+      opacity: 0; transition: opacity .3s;
+    }
+    .value-card:hover { transform: translateY(-5px); border-color: rgba(108,99,255,.3); box-shadow: 0 16px 40px rgba(0,0,0,.25); }
+    .value-card:hover::before { opacity: 1; }
+    .value-icon { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; margin-bottom: 1.2rem; }
+    .value-title { font-family: 'Syne', sans-serif; font-size: 1.05rem; font-weight: 700; margin-bottom: .5rem; }
+    .value-desc { color: var(--text2); font-size: .88rem; line-height: 1.65; }
+
+    /* ── TEAM ── */
+    .team-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; }
+    .team-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; padding: 2rem 1.5rem; text-align: center;
+      transition: all .3s;
+    }
+    .team-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0,0,0,.25); }
+    .team-avatar {
+      width: 72px; height: 72px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), #9b55ff);
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.6rem;
+      color: #fff; margin: 0 auto 1rem; box-shadow: 0 0 24px var(--glow);
+    }
+    .team-name { font-family: 'Syne', sans-serif; font-weight: 700; margin-bottom: .3rem; }
+    .team-role { font-size: .82rem; color: var(--accent); font-weight: 600; }
+    .team-desc { font-size: .82rem; color: var(--text2); margin-top: .5rem; line-height: 1.6; }
+
+    /* ── CONTACT ── */
+    .contact-box {
+      background: linear-gradient(135deg, rgba(108,99,255,.12), rgba(67,230,181,.06));
+      border: 1px solid rgba(108,99,255,.2);
+      border-radius: 28px; padding: 4rem 3rem;
+      text-align: center; position: relative; overflow: hidden;
+    }
+    .contact-box::before {
+      content: ''; position: absolute; top: -80px; left: 50%;
+      transform: translateX(-50%); width: 300px; height: 300px;
+      border-radius: 50%; background: rgba(108,99,255,.1); filter: blur(60px);
+    }
+    .contact-form { max-width: 520px; margin: 2.5rem auto 0; display: flex; flex-direction: column; gap: 1rem; }
+    .cf-input {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 12px; padding: .8rem 1.1rem; color: var(--text);
+      font-family: 'DM Sans', sans-serif; font-size: .9rem; outline: none;
+      transition: border .2s;
+    }
+    .cf-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(108,99,255,.12); }
+    .cf-input::placeholder { color: var(--text2); }
+    textarea.cf-input { resize: vertical; min-height: 110px; }
+    .btn-contact {
+      padding: .85rem 2.2rem; border-radius: 100px;
+      background: linear-gradient(135deg, var(--accent), #9b55ff);
+      border: none; color: #fff; font-family: 'DM Sans', sans-serif;
+      font-size: 1rem; font-weight: 600; cursor: pointer;
+      transition: all .2s; box-shadow: 0 0 24px var(--glow);
+    }
+    .btn-contact:hover { transform: translateY(-2px); box-shadow: 0 8px 30px var(--glow); }
+
+    /* ── REVEAL ── */
+    .reveal { opacity: 0; transform: translateY(28px); transition: opacity .6s ease, transform .6s ease; }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* ── MOBILE ── */
+    @media (max-width: 768px) {
+      .mission-grid { grid-template-columns: 1fr; gap: 2.5rem; }
+      .contact-box { padding: 2.5rem 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar" id="mainNav"></nav>
+
+<!-- HERO -->
+<section class="about-hero">
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+  <div style="position:relative;z-index:1">
+    <div class="about-badge">✦ Our Story</div>
+    <h1 class="about-hero-title">
+      Built for <span class="gradient-text">campus life</span>,<br/>
+      by students who get it.
+    </h1>
+    <p class="about-hero-sub">
+      CampusConnect was born from a simple frustration — great campus events going unnoticed,
+      brilliant clubs struggling to reach students. We built the solution.
+    </p>
+  </div>
+</section>
+
+<!-- MISSION -->
+<section class="section" id="mission">
+  <div class="container">
+    <div class="mission-grid">
+      <div class="reveal">
+        <span class="section-label">✦ Our Mission</span>
+        <h2 class="section-title">One platform. Every opportunity.</h2>
+        <p class="section-sub">
+          We believe no student should miss an event that could change their career, spark a passion,
+          or build a lifelong friendship — just because they didn't know about it.
+        </p>
+        <p class="section-sub" style="margin-top:1rem">
+          CampusConnect brings together event discovery, club management, and smart notifications
+          so every student is always in the loop — automatically.
+        </p>
+      </div>
+      <div class="mission-visual reveal">
+        <div class="stat-grid">
+          <div class="stat-box">
+            <div class="stat-num-lg" id="stat-clubs">50+</div>
+            <div class="stat-lbl">Active Clubs</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num-lg" id="stat-events">300+</div>
+            <div class="stat-lbl">Events Per Year</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num-lg" id="stat-students">5,000+</div>
+            <div class="stat-lbl">Students Connected</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num-lg" id="stat-categories">12</div>
+            <div class="stat-lbl">Event Categories</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- VALUES -->
+<section class="section" style="padding-top:0">
+  <div class="container">
+    <div style="text-align:center;margin-bottom:3.5rem" class="reveal">
+      <span class="section-label">✦ What We Stand For</span>
+      <h2 class="section-title">Our Core Values</h2>
+    </div>
+    <div class="values-grid">
+      <div class="value-card reveal">
+        <div class="value-icon" style="background:rgba(108,99,255,.15)">🌐</div>
+        <div class="value-title">Inclusivity First</div>
+        <div class="value-desc">Every student deserves access to campus life — regardless of department, year, or background. We build for everyone.</div>
+      </div>
+      <div class="value-card reveal">
+        <div class="value-icon" style="background:rgba(67,230,181,.15)">⚡</div>
+        <div class="value-title">Zero Friction</div>
+        <div class="value-desc">From discovering an event to registering for it — one click. We remove every unnecessary step from the student experience.</div>
+      </div>
+      <div class="value-card reveal">
+        <div class="value-icon" style="background:rgba(255,101,132,.15)">🔒</div>
+        <div class="value-title">Privacy & Security</div>
+        <div class="value-desc">Student data is never sold or shared. JWT auth, bcrypt passwords, and strict role-based access protect every account.</div>
+      </div>
+      <div class="value-card reveal">
+        <div class="value-icon" style="background:rgba(247,201,72,.15)">📣</div>
+        <div class="value-title">Empowering Clubs</div>
+        <div class="value-desc">Clubs are the heartbeat of campus. We give every club admin the tools to run professional events without technical overhead.</div>
+      </div>
+      <div class="value-card reveal">
+        <div class="value-icon" style="background:rgba(108,99,255,.15)">🎯</div>
+        <div class="value-title">Smart Discovery</div>
+        <div class="value-desc">Interest-based recommendations mean students see events relevant to them — not just a firehose of every campus activity.</div>
+      </div>
+      <div class="value-card reveal">
+        <div class="value-icon" style="background:rgba(67,230,181,.15)">🚀</div>
+        <div class="value-title">Open to All</div>
+        <div class="value-desc">CampusConnect is designed to be deployed by any college. Open, accessible, and built to scale across entire universities.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TEAM -->
+<section class="section" style="padding-top:0">
+  <div class="container">
+    <div style="text-align:center;margin-bottom:3.5rem" class="reveal">
+      <span class="section-label">✦ The Team</span>
+      <h2 class="section-title">Made by students, for students</h2>
+      <p class="section-sub" style="margin:.8rem auto 0">
+        A passionate team of developers who lived the problem — and decided to solve it.
+      </p>
+    </div>
+    <div class="team-grid">
+      <div class="team-card reveal">
+        <div class="team-avatar" style="background:linear-gradient(135deg,#6c63ff,#9b55ff)">S</div>
+        <div class="team-name">Shaik Irshad Ahmed</div>
+        <div class="team-role">Full-Stack Developer</div>
+        <div class="team-desc">Built the backend API, authentication system, and the overall platform architecture.</div>
+      </div>
+      <div class="team-card reveal">
+        <div class="team-avatar" style="background:linear-gradient(135deg,#43e6b5,#6c63ff)">F</div>
+        <div class="team-name">Frontend Lead</div>
+        <div class="team-role">UI/UX Engineer</div>
+        <div class="team-desc">Designed and built all the pages, theming system, and micro-animations.</div>
+      </div>
+      <div class="team-card reveal">
+        <div class="team-avatar" style="background:linear-gradient(135deg,#ff6584,#ff9f6b)">D</div>
+        <div class="team-name">Database Architect</div>
+        <div class="team-role">MongoDB Engineer</div>
+        <div class="team-desc">Designed the data models, aggregation pipelines, and database optimization.</div>
+      </div>
+      <div class="team-card reveal">
+        <div class="team-avatar" style="background:linear-gradient(135deg,#f7c948,#ff6584)">P</div>
+        <div class="team-name">Product Manager</div>
+        <div class="team-role">Product & Strategy</div>
+        <div class="team-desc">Drove feature planning, user research, and ensured the platform stays student-first.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section class="section" id="contact" style="padding-top:0">
+  <div class="container">
+    <div class="contact-box reveal">
+      <span class="section-label" style="position:relative">✦ Get in Touch</span>
+      <h2 class="section-title" style="position:relative;margin-top:.5rem">Have questions or feedback?</h2>
+      <p class="section-sub" style="margin:.8rem auto 0;position:relative">
+        We'd love to hear from students, club admins, and college administrators.
+        Reach out and we'll respond within 24 hours.
+      </p>
+      <form class="contact-form" id="contactForm">
+        <input  class="cf-input" type="text"  id="cfName"    placeholder="Your Name" required/>
+        <input  class="cf-input" type="email" id="cfEmail"   placeholder="Your Email" required/>
+        <input  class="cf-input" type="text"  id="cfSubject" placeholder="Subject"/>
+        <textarea class="cf-input"            id="cfMessage" placeholder="Your message…" required></textarea>
+        <button type="submit" class="btn-contact">📨 Send Message</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer id="mainFooter"></footer>
+
+<script src="../js/app.js"></script>
+<script>
+  buildNav('about');
+
+  // ── Contact form ──────────────────────────────────────
+  document.getElementById('contactForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const name    = document.getElementById('cfName').value.trim();
+    const email   = document.getElementById('cfEmail').value.trim();
+    const subject = document.getElementById('cfSubject').value.trim();
+    const message = document.getElementById('cfMessage').value.trim();
+
+    if (!name || !email || !message) {
+      toast('Please fill in all required fields.', 'error');
+      return;
+    }
+
+    // In a real deployment, this would POST to a contact API
+    toast(`Thanks, ${name}! Your message has been received. We'll reply to ${email} soon. 🙌`, 'success');
+    this.reset();
+  });
+
+  // ── Live stats from backend ───────────────────────────
+  (async () => {
+    try {
+      const data = await API.getAnalytics();
+      if (data.totalClubs)    document.getElementById('stat-clubs').textContent    = data.totalClubs + '+';
+      if (data.totalEvents)   document.getElementById('stat-events').textContent   = data.totalEvents + '+';
+      if (data.totalStudents) document.getElementById('stat-students').textContent = data.totalStudents.toLocaleString() + '+';
+    } catch {
+      // Backend offline — static numbers already shown
+    }
+  })();
+</script>
+</body>
+</html>

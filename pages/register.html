@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Sign Up — CampusConnect</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+  <style>
+    .auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:6rem 1.5rem 3rem;position:relative;overflow:hidden}
+    .orb{position:absolute;border-radius:50%;filter:blur(72px);pointer-events:none}
+    .o1{width:400px;height:400px;background:rgba(124,107,255,.15);top:-100px;right:-100px;animation:float 8s ease-in-out infinite}
+    .o2{width:300px;height:300px;background:rgba(255,107,157,.1);bottom:-50px;left:-80px;animation:float 10s ease-in-out infinite reverse}
+    .auth-card{background:var(--s1);border:1px solid var(--b2);border-radius:var(--rxl);padding:3rem;width:100%;max-width:470px;position:relative;z-index:1;animation:scaleIn .4s ease}
+    .logo-text{font-family:'Syne',sans-serif;font-size:1.35rem;font-weight:800;background:linear-gradient(135deg,var(--v),var(--tl));-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-align:center;display:block;margin-bottom:2rem}
+    .auth-title{font-family:'Syne',sans-serif;font-size:1.55rem;font-weight:800;text-align:center;margin-bottom:.4rem}
+    .auth-sub{color:var(--tx2);text-align:center;font-size:.85rem;margin-bottom:2rem}
+    .role-tabs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem;margin-bottom:1.8rem}
+    .r-tab{padding:.62rem;border-radius:10px;border:1px solid var(--b2);background:transparent;color:var(--tx2);font-family:inherit;font-size:.84rem;font-weight:500;cursor:pointer;transition:all .2s;text-align:center}
+    .r-tab.active{background:rgba(124,107,255,.15);border-color:rgba(124,107,255,.4);color:var(--v2)}
+    .int-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.45rem}
+    .int-chip{padding:.42rem;border-radius:9px;border:1px solid var(--b2);background:transparent;color:var(--tx2);font-size:.73rem;cursor:pointer;transition:all .2s;text-align:center}
+    .int-chip.sel{background:rgba(124,107,255,.15);border-color:rgba(124,107,255,.4);color:var(--v2)}
+  </style>
+</head>
+<body>
+<nav class="navbar" id="mainNav"></nav>
+<div class="auth-wrap">
+  <div class="orb o1"></div><div class="orb o2"></div>
+  <div class="auth-card">
+    <span class="logo-text">CampusConnect</span>
+    <h1 class="auth-title">Create account 🎓</h1>
+    <p class="auth-sub">Join your campus community today</p>
+
+    <div class="role-tabs">
+      <button class="r-tab active" id="tab-student" onclick="setRole('student')">🎓 Student</button>
+      <button class="r-tab" id="tab-clubAdmin" onclick="setRole('clubAdmin')">🏢 Club Admin</button>
+      <button class="r-tab" id="tab-superAdmin" onclick="setRole('superAdmin')">👑 Super Admin</button>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:1.1rem">
+      <div class="form-group"><label class="form-label">Full Name *</label><input class="form-input" id="name" placeholder="Your full name"/></div>
+      <div class="form-group"><label class="form-label">College Email *</label><input class="form-input" type="email" id="email" placeholder="yourname@college.edu"/></div>
+      <div class="form-group"><label class="form-label">Password *</label><input class="form-input" type="password" id="password" placeholder="Minimum 6 characters"/></div>
+
+      <!-- Student interests -->
+      <div id="interestSection">
+        <label class="form-label" style="display:block;margin-bottom:.6rem">Your Interests</label>
+        <div class="int-grid">
+          <button class="int-chip" onclick="toggleInt(this,'Technical')">💻 Technical</button>
+          <button class="int-chip" onclick="toggleInt(this,'Cultural')">🎭 Cultural</button>
+          <button class="int-chip" onclick="toggleInt(this,'Sports')">⚽ Sports</button>
+          <button class="int-chip" onclick="toggleInt(this,'Hackathons')">🏆 Hackathons</button>
+          <button class="int-chip" onclick="toggleInt(this,'Workshops')">🔧 Workshops</button>
+          <button class="int-chip" onclick="toggleInt(this,'AI')">🤖 AI/ML</button>
+          <button class="int-chip" onclick="toggleInt(this,'Arts')">🎨 Arts</button>
+          <button class="int-chip" onclick="toggleInt(this,'Entrepreneurship')">🚀 E-Cell</button>
+          <button class="int-chip" onclick="toggleInt(this,'Coding')">⌨️ Coding</button>
+        </div>
+      </div>
+
+      <!-- Club admin extra fields -->
+      <div id="clubSection" style="display:none;display:flex;flex-direction:column;gap:1rem">
+        <div class="form-group"><label class="form-label">Club Name *</label><input class="form-input" id="clubName" placeholder="e.g. Coding Club"/></div>
+        <div class="form-group"><label class="form-label">Club Category *</label>
+          <select class="form-select" id="clubCat">
+            <option value="">Select category</option>
+            <option>Technical</option><option>Cultural</option><option>Sports</option>
+            <option>Hackathons</option><option>Workshops</option><option>Entrepreneurship</option><option>Arts</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Description *</label><textarea class="form-input" id="clubDesc" rows="2" placeholder="What is your club about?"></textarea></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem">
+          <div class="form-group"><label class="form-label">Contact Phone</label><input class="form-input" id="clubPhone" placeholder="e.g. 9876543210"/></div>
+          <div class="form-group"><label class="form-label">Contact Email</label><input class="form-input" id="clubEmail" placeholder="e.g. club@college.edu"/></div>
+        </div>
+      </div>
+
+      <button class="btn btn-lg btn-primary" id="regBtn" onclick="handleRegister()" style="width:100%;margin-top:.4rem">Create Account</button>
+    </div>
+
+    <p style="text-align:center;margin-top:1.8rem;font-size:.85rem;color:var(--tx2)">
+      Already have an account? <a href="login.html" style="color:var(--v2);font-weight:600">Sign in</a>
+    </p>
+  </div>
+</div>
+<script src="../js/app.js"></script>
+<script>
+  buildNav('');
+  if (Auth.isLoggedIn) window.location.href = 'dashboard.html';
+
+  let role = 'student';
+  let interests = [];
+
+  const urlRole = new URLSearchParams(window.location.search).get('role');
+  if (urlRole === 'clubAdmin') setTimeout(() => setRole('clubAdmin'), 80);
+
+  function setRole(r) {
+    role = r;
+    document.querySelectorAll('.r-tab').forEach(t=>t.classList.remove('active'));
+    document.getElementById('tab-'+r).classList.add('active');
+    document.getElementById('interestSection').style.display = r==='student'?'':'none';
+    document.getElementById('clubSection').style.display = r==='clubAdmin'?'flex':'none';
+  }
+
+  function toggleInt(el, v) {
+    el.classList.toggle('sel');
+    interests = el.classList.contains('sel') ? [...interests,v] : interests.filter(i=>i!==v);
+  }
+
+  async function handleRegister() {
+    const name=document.getElementById('name').value.trim();
+    const email=document.getElementById('email').value.trim();
+    const password=document.getElementById('password').value;
+    if (!name||!email||!password) { toast('Please fill all required fields','error'); return; }
+    if (password.length<6) { toast('Password must be at least 6 characters','error'); return; }
+
+    const btn = document.getElementById('regBtn');
+    btn.textContent='Creating account…'; btn.disabled=true;
+
+    try {
+      const data = await API.register({ name, email, password, role, interests });
+      Auth.save(data.user, data.token);
+
+      // If club admin, also create the club
+      if (role==='clubAdmin') {
+        const clubName=document.getElementById('clubName').value.trim();
+        const category=document.getElementById('clubCat').value;
+        const description=document.getElementById('clubDesc').value.trim();
+        const contactEmail=document.getElementById('clubEmail').value.trim();
+        const contactPhone=document.getElementById('clubPhone').value.trim();
+        if (clubName && category && description) {
+          try { await API.createClub({ clubName, category, description, contactEmail, contactPhone }); } catch {}
+        }
+      }
+
+      toast('🎉 Account created! Redirecting…','success');
+      setTimeout(() => { window.location.href = role==='clubAdmin'?'club-dashboard.html':role==='superAdmin'?'admin.html':'dashboard.html'; }, 800);
+    } catch (err) {
+      toast(err.message||'Registration failed','error');
+      btn.textContent='Create Account'; btn.disabled=false;
+    }
+  }
+</script>
+</body>
+</html>

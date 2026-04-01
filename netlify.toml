@@ -1,0 +1,12 @@
+[build]
+  publish = "."
+
+[[redirects]]
+  from = "/api/*"
+  to = "https://campusconnect-backend-1v8l.onrender.com/api/:splat"
+  status = 200
+
+[header]
+  for = "/*"
+  [header.values]
+    Access-Control-Allow-Origin = "*"

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Event Calendar — CampusConnect</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+  <!-- FullCalendar CDN -->
+  <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+  <style>
+    .calendar-container {
+      background: var(--s1);
+      border: 1px solid var(--b1);
+      border-radius: var(--rl);
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    :root {
+      --fc-border-color: var(--b1);
+      --fc-daygrid-event-dot-width: 8px;
+      --fc-page-bg-color: var(--bg);
+      --fc-neutral-bg-color: var(--s2);
+      --fc-list-event-hover-bg-color: var(--s2);
+      --fc-today-bg-color: rgba(124,107,255,0.1);
+    }
+    .fc { font-family: 'DM Sans', sans-serif; }
+    .fc-header-toolbar { margin-bottom: 1.5rem !important; }
+    .fc-toolbar-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.4rem !important; color: var(--tx); }
+    .fc-button-primary {
+      background: var(--v) !important;
+      border: none !important;
+      box-shadow: none !important;
+      text-transform: capitalize !important;
+      font-size: 0.9rem !important;
+      padding: 0.5rem 1rem !important;
+      border-radius: 8px !important;
+    }
+    .fc-button-primary:hover { background: var(--v2) !important; }
+    .fc-button-active { background: var(--v2) !important; }
+    .fc-daygrid-day-number { color: var(--tx2); font-size: 0.9rem; padding: 8px !important; }
+    .fc-col-header-cell-cushion { color: var(--v2); font-size: 0.85rem; font-weight: 700; text-transform: uppercase; padding: 10px 0 !important; }
+    .fc-event { border-radius: 4px; border: none; padding: 2px 4px; font-size: 0.75rem; cursor: pointer; }
+    
+    /* Category Colors */
+    .ev-Technical { background-color: #7c6bff !important; }
+    .ev-Cultural { background-color: #ff6b9d !important; }
+    .ev-Sports { background-color: #4ade80 !important; }
+    .ev-Hackathons { background-color: #f7c948 !important; color: #000 !important; }
+    .ev-Workshops { background-color: #3de6c0 !important; }
+    .ev-Entrepreneurship { background-color: #f7c948 !important; }
+    .ev-Arts { background-color: #a594ff !important; }
+    .ev-Other { background-color: #94a3b8 !important; }
+
+    .registered-ev { border: 2px solid #fff !important; font-weight: bold; }
+    .deadline-ev { background-color: rgba(239, 68, 68, 0.15) !important; color: #ef4444 !important; border-left: 3px solid #ef4444 !important; font-size: 0.7rem; }
+
+    .legend { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; }
+    .legend-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; color: var(--tx2); }
+    .legend-color { width: 10px; height: 10px; border-radius: 2px; }
+  </style>
+</head>
+<body>
+<nav class="navbar" id="mainNav"></nav>
+<div class="page-wrap">
+  <div class="page-hero" style="background:linear-gradient(135deg,rgba(124,107,255,0.08),rgba(61,230,192,0.05))">
+    <div class="container">
+      <span class="section-label">✦ Planning</span>
+      <h1>Event Calendar</h1>
+      <p style="color:var(--tx2);margin-top:.4rem">Visualize all campus happenings and deadlines.</p>
+    </div>
+  </div>
+  <div class="container" style="padding:2rem 0 4rem">
+    <div class="calendar-container">
+      <div id="calendar"></div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-color" style="background:#7c6bff"></div>Technical</div>
+        <div class="legend-item"><div class="legend-color" style="background:#ff6b9d"></div>Cultural</div>
+        <div class="legend-item"><div class="legend-color" style="background:#4ade80"></div>Sports</div>
+        <div class="legend-item"><div class="legend-color" style="background:#f7c948"></div>Hackathons</div>
+        <div class="legend-item"><div class="legend-color" style="background:#3de6c0"></div>Workshops</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Event Detail Modal -->
+<div class="modal-overlay" id="evModal">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-header"><div class="modal-title" id="mTitle"></div><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div id="mBody"></div>
+  </div>
+</div>
+
+<footer id="mainFooter"></footer>
+<script src="../js/app.js"></script>
+<script>
+  buildNav('calendar');
+
+  async function initCalendar() {
+    const calendarEl = document.getElementById('calendar');
+    
+    try {
+      const events = await API.getEvents();
+      
+      const calendarEvents = [];
+      const uId = Auth.user?._id;
+
+      events.forEach(ev => {
+        const isReg = ev.registeredStudents?.some(s => (s._id || s) === uId);
+        
+        // Add Event
+        calendarEvents.push({
+          id: ev._id,
+          title: (isReg ? '✅ ' : '') + ev.title,
+          start: ev.date,
+          className: 'ev-' + ev.category + (isReg ? ' registered-ev' : ''),
+          extendedProps: { ...ev, type: 'event' }
+        });
+
+        // Add Deadline
+        calendarEvents.push({
+          id: 'dl-' + ev._id,
+          title: '⌛ ' + ev.title + ' (Deadline)',
+          start: ev.registrationDeadline,
+          className: 'deadline-ev',
+          allDay: true,
+          extendedProps: { ...ev, type: 'deadline' }
+        });
+      });
+
+      const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        headerToolbar: {
+          left: 'prev,next today',
+          center: 'title',
+          right: 'dayGridMonth,listMonth'
+        },
+        themeSystem: 'standard',
+        events: calendarEvents,
+        eventClick: function(info) {
+          openModal(info.event.id.replace('dl-', ''));
+        },
+        height: 'auto',
+      });
+
+      calendar.render();
+    } catch (err) {
+      calendarEl.innerHTML = `<p style="color:var(--rd)">Failed to load calendar: ${err.message}</p>`;
+    }
+  }
+
+  async function openModal(id) {
+    try {
+      const ev = await API.getEvent(id);
+      const reg = Auth.user && ev.registeredStudents?.some(s => (s._id||s)===Auth.user._id);
+      
+      document.getElementById('mTitle').textContent = ev.title;
+      document.getElementById('mBody').innerHTML = `
+        <div style="background:linear-gradient(135deg,rgba(124,107,255,.1),rgba(61,230,192,.05));border-radius:var(--r);padding:2rem;text-align:center;font-size:3.5rem;margin-bottom:1.5rem">🎯</div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem">${catTag(ev.category)}<span class="tag ${ev.participationFee===0?'tag-gn':'tag-am'}">${ev.participationFee===0?'Free':'₹'+ev.participationFee}</span></div>
+        <p style="color:var(--tx2);font-size:.88rem;line-height:1.7;margin-bottom:1.5rem">${ev.description}</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-bottom:1.4rem">
+          <div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:.85rem"><div style="font-size:.68rem;color:var(--tx2);margin-bottom:.2rem">📅 DATE</div><div style="font-weight:600;font-size:.88rem">${fDate(ev.date)}</div></div>
+          <div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:.85rem"><div style="font-size:.68rem;color:var(--tx2);margin-bottom:.2rem">⏰ TIME</div><div style="font-weight:600;font-size:.88rem">${ev.time}</div></div>
+          <div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:.85rem"><div style="font-size:.68rem;color:var(--tx2);margin-bottom:.2rem">📍 VENUE</div><div style="font-weight:600;font-size:.88rem">${ev.venue}</div></div>
+          <div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:.85rem"><div style="font-size:.68rem;color:var(--tx2);margin-bottom:.2rem">🏢 CLUB</div><div style="font-weight:600;font-size:.88rem">${ev.clubId?.clubName||'Campus Club'}</div></div>
+        </div>
+        <a href="events.html" class="btn btn-lg btn-primary" style="width:100%">Go to Event Page</a>`;
+      document.getElementById('evModal').classList.add('open');
+    } catch { toast('Failed to load event details','error'); }
+  }
+
+  function closeModal() { document.getElementById('evModal').classList.remove('open'); }
+  document.getElementById('evModal').addEventListener('click', e => { if(e.target===e.currentTarget) closeModal(); });
+
+  initCalendar();
+</script>
+</body>
+</html>

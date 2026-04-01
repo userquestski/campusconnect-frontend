@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Dashboard — CampusConnect</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+  <style>
+    .ev-row{background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:.9rem 1.1rem;display:flex;align-items:center;gap:.9rem;margin-bottom:.6rem;transition:all .2s}
+    .ev-row:hover{border-color:var(--b2)}
+    .ev-ico{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;background:rgba(124,107,255,.15)}
+    .notif{background:var(--s2);border-left:3px solid var(--v);border-radius:0 10px 10px 0;padding:.85rem 1rem;margin-bottom:.55rem;font-size:.84rem}
+    .notif.tl{border-color:var(--tl)}.notif.pk{border-color:var(--pk)}
+    .int-chip-sm{display:inline-flex;align-items:center;padding:.25rem .7rem;border-radius:100px;font-size:.72rem;font-weight:600;background:rgba(124,107,255,.15);color:var(--v2);border:1px solid rgba(124,107,255,.25);margin:.15rem}
+    .int-chip-sm.sel{background:var(--v);color:#fff;border-color:var(--v2)}
+  </style>
+</head>
+<body>
+<nav class="navbar" id="mainNav"></nav>
+<div class="page-wrap">
+  <div class="container">
+    <div class="dash-layout">
+      <aside class="sidebar" id="sidebar"></aside>
+      <main class="dash-main" id="dashMain"></main>
+    </div>
+  </div>
+</div>
+
+<!-- Event Detail/Registration Modal -->
+<div class="modal-overlay" id="evModal">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-header"><div class="modal-title" id="mTitle"></div><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div id="mBody"></div>
+  </div>
+</div>
+
+<footer id="mainFooter"></footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="../js/app.js?v=2"></script>
+<script>
+  buildNav('');
+  if (!Auth.isLoggedIn) { window.location.href='login.html'; }
+  const user = Auth.user;
+  if (user?.role==='clubAdmin') { window.location.href='club-dashboard.html'; }
+  if (user?.role==='superAdmin') { window.location.href='admin.html'; }
+
+  let page = 'overview';
+
+  function buildSidebar() {
+    const links = [
+      {k:'overview',i:'🏠',l:'Overview'},
+      {k:'events',i:'📅',l:'Upcoming Events'},
+      {k:'clubs',i:'🏢',l:'Discover Clubs'},
+      {k:'registered',i:'✅',l:'My Registrations'},
+      {k:'profile',i:'👤',l:'Profile Settings'},
+    ];
+    document.getElementById('sidebar').innerHTML = `
+      <div class="sidebar-profile">
+        <div class="avatar av-lg">${user.name[0].toUpperCase()}</div>
+        <h3 style="margin-top:.6rem">${user.name}</h3>
+        <p>${user.email}</p>
+        <div style="margin-top:.4rem"><span class="tag tag-v">🎓 Student</span></div>
+      </div>
+      <nav class="sidebar-nav">
+        ${links.map(l=>`<button class="s-link${l.k===page?' active':''}" onclick="go('${l.k}')"><span class="ico">${l.i}</span>${l.l}</button>`).join('')}
+        <button class="s-link" onclick="Auth.clear()" style="margin-top:1rem;color:var(--rd)"><span class="ico">🚪</span>Logout</button>
+      </nav>`;
+  }
+
+  async function go(p) {
+    page=p; buildSidebar();
+    const el = document.getElementById('dashMain');
+    loading(el);
+    if (p==='overview')   await renderOverview();
+    if (p==='events')     await renderEvents();
+    if (p==='registered') await renderRegistered();
+    if (p==='clubs')      await renderClubs();
+    if (p==='profile')    renderProfile();
+  }
+
+  async function renderClubs() {
+    const el = document.getElementById('dashMain');
+    try {
+      const clubs = await API.getClubs();
+      el.innerHTML = `
+        <div class="dash-header"><h1>Discover Clubs</h1><p>Join or follow campus organizations.</p></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:1.2rem">
+          ${clubs.map(cl => `
+            <div class="row" style="padding:1.2rem;flex-direction:column;align-items:flex-start;gap:.6rem;cursor:pointer" onclick="window.location.href='clubs.html'">
+              <div style="display:flex;gap:.8rem;align-items:center;width:100%">
+                <div style="width:42px;height:42px;border-radius:10px;background:rgba(124,107,255,0.1);display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0">🏢</div>
+                <div style="flex:1"><div style="font-weight:700;font-size:.9rem">${cl.clubName}</div><div style="font-size:.75rem;color:var(--tx2)">${cl.category}</div></div>
+              </div>
+              <p style="font-size:.8rem;color:var(--tx2);line-height:1.5;margin-bottom:.5rem">${cl.description.slice(0, 80)}...</p>
+              <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
+                <span style="font-size:.7rem;color:var(--v2);font-weight:600">📊 ${cl.events?.length || 0} Events</span>
+                <span class="tag tag-v" style="font-size:.65rem">View Profile →</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    } catch (err) { el.innerHTML = `<p style="color:var(--rd)">${err.message}</p>`; }
+  }
+
+  async function renderOverview() {
+    const el = document.getElementById('dashMain');
+    try {
+      const [dashData, upcomingEvs, notifs] = await Promise.all([API.getDashboard(), API.getEvents(), API.getNotifications()]);
+      const regCount = dashData.registeredEvents?.length||0;
+      const upcoming = upcomingEvs.filter(e=>new Date(e.date).setHours(23,59,59,999)>=Date.now()).slice(0,10);
+      el.innerHTML = `
+        <div class="dash-header"><h1>Good morning, ${user.name.split(' ')[0]} 👋</h1><p>Here's what's happening on campus.</p></div>
+        <div class="stat-grid">
+          <div class="stat-card"><div class="ico">✅</div><div class="val">${regCount}</div><div class="lbl">Registered</div></div>
+          <div class="stat-card"><div class="ico">📅</div><div class="val">${upcomingEvs.filter(e=>new Date(e.date).setHours(23,59,59,999)>=Date.now()).length}</div><div class="lbl">Upcoming</div></div>
+          <div class="stat-card"><div class="ico">🎯</div><div class="val">${user.interests?.length||0}</div><div class="lbl">My Interests</div></div>
+          <div class="stat-card"><div class="ico">🏢</div><div class="val">${user.followingClubs?.length||0}</div><div class="lbl">Following</div></div>
+        </div>
+        <div class="section-box">
+          <div class="box-title">🔔 Notifications <button class="btn btn-sm btn-ghost" onclick="markAllRead()" style="font-size:.7rem">Mark all as read</button></div>
+          <div id="notifList"></div>
+        </div>
+        <div class="stat-grid" id="followedFeed" style="display:grid;grid-template-columns:1fr;gap:1.1rem;margin-top:2rem">
+           <!-- Followed Clubs Feed will be injected here -->
+        </div>
+        <div class="section-box">
+          <div class="box-title">📅 Upcoming Events <a href="#" onclick="go('events')" style="font-size:.8rem;color:var(--v2);font-weight:500">View all →</a></div>
+          ${upcoming.map(ev=>`<div class="ev-row">
+            <div class="ev-ico">🎯</div>
+            <div style="flex:1"><div style="font-size:.88rem;font-weight:600">${ev.title}</div><div style="font-size:.76rem;color:var(--tx2)">📅 ${fDate(ev.date)} · 📍 ${ev.venue} · 🏢 ${ev.clubId?.clubName || 'Club'}</div></div>
+            ${catTag(ev.category)}
+          </div>`).join('')}
+          ${!upcoming.length?'<p style="color:var(--tx2);font-size:.85rem">No upcoming events yet.</p>':''}
+        </div>`;
+      
+      // 1. Generate Interest-based Notifications dynamically
+      const registeredIds = (dashData.registeredEvents || []).map(e=>e._id||e);
+      const myInterests = user.interests || [];
+      const interestEvs = upcomingEvs.filter(e => 
+          new Date(e.date) >= Date.now() && 
+          !registeredIds.includes(e._id) && 
+          myInterests.includes(e.category)
+      );
+
+      let interestNotifsHTML = '';
+      if (interestEvs.length > 0) {
+        interestNotifsHTML = interestEvs.slice(0, 2).map(ev => 
+          `<div class="notif tl" style="cursor:pointer" onclick="go('events')">
+            💡 <strong>Based on your interests:</strong> Check out <strong>${ev.title}</strong> (${ev.category}) on ${fDate(ev.date)}!
+          </div>`
+        ).join('');
+      } else if (myInterests.length === 0) {
+        interestNotifsHTML = `<div class="notif pk" style="cursor:pointer" onclick="go('profile')">
+          ⚠️ <strong>Update your Profile:</strong> Set your interests in Profile Settings to get personalized event alerts!
+        </div>`;
+      }
+
+      // 2. Fetch standard notifications
+      let baseNotifsHTML = '';
+      if (notifs && notifs.length) {
+        baseNotifsHTML = notifs.map(n => `<div class="notif ${n.isRead?'':'pk'}" style="cursor:pointer" onclick="markRead('${n._id}', this)">
+          <strong>${n.title}</strong>: ${n.message}
+          <div style="font-size:0.7rem;color:var(--tx2);margin-top:0.2rem">${fDate(n.createdAt)} ${n.isRead?'':'· <span style="color:var(--pk)">New</span>'}</div>
+        </div>`).join('');
+      } else {
+        baseNotifsHTML = `<div class="notif">📢 Welcome to CampusConnect! Stay tuned for updates.</div>`;
+      }
+      
+      document.getElementById('notifList').innerHTML = interestNotifsHTML + baseNotifsHTML;
+
+      // Inject followed club updates
+      renderFollowedFeed();
+    } catch (err) {
+      el.innerHTML = `<div class="dash-header"><h1>Dashboard</h1></div><div class="section-box"><p style="color:var(--rd)">Failed to load: ${err.message}</p></div>`;
+    }
+  }
+
+  async function markRead(id, el) {
+    try {
+      await API.markNotifRead(id);
+      el.classList.remove('pk');
+      const badge = el.querySelector('span');
+      if (badge) badge.remove();
+    } catch (e) { console.error(e); }
+  }
+
+  async function markAllRead() {
+    try {
+      await API.markAllNotifsRead();
+      document.querySelectorAll('.notif.pk').forEach(el => el.classList.remove('pk'));
+      toast('All caught up!', 'info');
+      go('overview');
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  async function renderEvents() {
+    const el = document.getElementById('dashMain');
+    try {
+      // Fetch events, dashboard data, and AI recommendations
+      const [events, dashData, recommended] = await Promise.all([API.getEvents(), API.getDashboard(), API.getRecommendedEvents()]);
+      const registeredIds = (dashData.registeredEvents || []).map(e => e._id || e);
+      const upcoming = events.filter(e => new Date(e.date).setHours(23,59,59,999) >= Date.now()).sort((a,b) => new Date(a.date) - new Date(b.date));
+      
+      const renderCard = (ev, isGlowing = false) => {
+        const isReg = registeredIds.includes(ev._id);
+        const pct = ev.maxParticipants ? Math.round((ev.registeredStudents.length / ev.maxParticipants) * 100) : 0;
+        return `<div class="event-card" style="${isGlowing?'border:2px solid var(--v);box-shadow:0 8px 25px rgba(124,107,255,.15)':''}">
+          <div class="ec-img" style="background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:3.5rem"> 
+            ${(() => {
+              const icons = { 'Technical': '💻', 'Cultural': '🎭', 'Sports': '🏆', 'Hackathons': '🚀', 'Workshops': '🛠️', 'Entrepreneurship': '💡', 'Arts': '🎨' };
+              return icons[ev.category] || '🎯';
+            })()}
+            <div style="position:absolute;top:.8rem;left:.8rem">${catTag(ev.category)}</div>
+            <div style="position:absolute;top:.8rem;right:.8rem"><span class="tag ${ev.participationFee===0?'tag-gn':'tag-am'}">${ev.participationFee===0?'Free':'₹'+ev.participationFee}</span></div>
+          </div>
+          <div class="ec-body">
+            <div class="ec-club">🏢 ${ev.clubId?.clubName || 'Club'}</div>
+            <div class="ec-title">${ev.title}</div>
+            <div style="font-size:.74rem;color:var(--v2);margin-bottom:.4rem;display:flex;align-items:center;gap:.3rem">
+              👤 ${ev.coordinatorName || 'Club Admin'} · 📞 ${ev.coordinatorPhone || ''}
+            </div>
+            <div class="ec-meta"><span>📅 ${fDate(ev.date)}</span><span>📍 ${ev.venue}</span></div>
+            ${ev.maxParticipants ? `<div class="prog"><div class="prog-fill" style="width:${pct}%"></div></div>
+            <div style="font-size:.7rem;color:var(--tx2);margin-bottom:.7rem">${ev.registeredStudents.length}/${ev.maxParticipants} students</div>` : ''}
+            <div class="ec-footer">
+              <span></span>
+              ${ev.externalLink 
+                ? `<a href="${ev.externalLink}" target="_blank" class="btn btn-sm btn-primary" style="text-decoration:none">External Link ↗</a>` 
+                : (isReg 
+                    ? `<button class="btn btn-sm btn-success" disabled>✅ Registered</button>` 
+                    : `<button class="btn btn-sm btn-primary" onclick="quickReg('${ev._id}',this)">Register</button>`)
+              }
+            </div>
+          </div>
+        </div>`;
+      };
+
+      el.innerHTML = `
+        <div class="dash-header" style="margin-bottom:1.5rem"><h1>Discover Events</h1><p>Find your next opportunity.</p></div>
+        
+        ${recommended.length ? `
+        <div class="section-box" style="background:linear-gradient(135deg,rgba(124,107,255,.06),rgba(61,230,192,.03));border:1px solid rgba(124,107,255,.2);margin-bottom:2.5rem;overflow:visible">
+          <div style="display:inline-block;background:var(--v);color:#fff;font-size:.75rem;font-weight:700;padding:.3rem .8rem;border-radius:100px;margin-bottom:.8rem;box-shadow:0 4px 12px rgba(124,107,255,.3)">🤖 AI MATCH</div>
+          <div class="box-title" style="font-size:1.15rem;margin-bottom:.2rem">Recommended for You</div>
+          <p style="color:var(--tx2);font-size:.85rem;margin-bottom:1.4rem">Hand-picked based on your department and interests.</p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:1.5rem">
+            ${recommended.map(ev => renderCard(ev, true)).join('')}
+          </div>
+        </div>` : ''}
+
+        <div class="dash-header"><h2>All Upcoming Events</h2><p>${upcoming.length} events available</p></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:1.5rem">
+          ${upcoming.map(ev => renderCard(ev, false)).join('')}
+          ${!upcoming.length ? '<p style="color:var(--tx2);grid-column:1/-1">No upcoming events.</p>' : ''}
+        </div>`;
+    } catch (err) { el.innerHTML = `<div class="dash-header"><h1>Events</h1></div><p style="color:var(--rd)">${err.message}</p>`; }
+  }
+
+  async function quickReg(id, btn, forceReg=false, data=null) {
+    if (!Auth.isLoggedIn) { window.location.href='login.html'; return; }
+    if (Auth.user.role!=='student') { toast('Only students can register','error'); return; }
+    
+    // 1. Profile Check: Always ensure student details are present
+    const u = Auth.user;
+    if (!u.rollNo || !u.department || !u.phone) {
+        if (!forceReg) { openRegFormModal(id); return; }
+    }
+
+    const events = await API.getEvents();
+    const ev = events.find(e => e._id === id);
+    if (!ev) return;
+
+    // 2. Fee Check: If not already forcing and there is a fee, ask for payment
+    if (!forceReg && ev.participationFee > 0) {
+      openPaidRegModal(id, ev);
+      return;
+    }
+
+    // 3. Final Registration Call
+    btn.disabled=true; btn.textContent='…';
+    try {
+      await API.registerEvent(id, data);
+      toast('🎉 Registered! Check your email.','success');
+      btn.textContent='✅ Done'; btn.className='btn btn-sm btn-success';
+      closeModal();
+      await renderEvents();
+    } catch (err) {
+      toast(err.message,'error'); 
+      btn.disabled=false; 
+      btn.textContent=ev.participationFee > 0 ? 'Verify Payment & Register' : 'Register';
+    }
+  }
+
+  function openPaidRegModal(id, ev) {
+    document.getElementById('mTitle').textContent = 'Secure Payment Verification';
+    document.getElementById('mBody').innerHTML = `
+      <div style="text-align:center;margin-bottom:1.5rem">
+        <p style="color:var(--tx2);font-size:.88rem;margin-bottom:1.5rem">This event requires a participation fee of <strong style="color:var(--v);font-size:1.1rem">₹${ev.participationFee}</strong>.</p>
+        
+        ${(ev.guests && ev.guests.length > 0) ? `
+          <div style="margin-bottom:1.5rem;text-align:left">
+            <h4 style="font-family:'Syne',sans-serif;font-size:0.75rem;font-weight:700;color:var(--tx2);margin-bottom:.6rem;text-transform:uppercase">🌟 Special Guests</h4>
+            <div style="display:flex;flex-wrap:wrap;gap:.5rem">
+              ${ev.guests.map(g => `<span class="tag" style="background:rgba(124,107,255,.1);color:var(--v);font-weight:600">${g}</span>`).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        <div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:.85rem"><div style="font-size:.68rem;color:var(--tx2);margin-bottom:.2rem">📍 VENUE</div><div style="font-weight:600;font-size:.88rem">${ev.venue}</div></div>
+        <div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:.85rem"><div style="font-size:.68rem;color:var(--tx2);margin-bottom:.2rem">🏢 CLUB</div><div style="font-weight:600;font-size:.88rem">${ev.clubId?.clubName||'Campus Club'}</div></div>
+        <div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:.85rem;grid-column:1/-1">
+          <div style="font-size:.68rem;color:var(--tx2);margin-bottom:.2rem">👤 EVENT COORDINATOR</div>
+          <div style="font-weight:600;font-size:.88rem">${ev.coordinatorName || 'Club Admin'} · ${ev.coordinatorPhone || ''}</div>
+        </div>
+        <div style="background:var(--s2);padding:1.5rem;border-radius:12px;margin-bottom:1.5rem;border:1px solid var(--b1)">
+          <div style="font-size:.8rem;color:var(--tx2);margin-bottom:.4rem">Club Admin Payment UPI / Phone</div>
+          <div style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:700;letter-spacing:1px">${ev.paymentUpi || 'Not Provided (Contact Club)'}</div>
+        </div>
+
+        <div style="text-align:left;margin-bottom:1.5rem">
+          <label class="form-label">Upload Payment Screenshot *</label>
+          <input type="file" id="payImg" class="form-input" accept="image/*" style="padding:.6rem"/>
+          <div style="font-size:.75rem;color:var(--tx2);margin-top:.5rem">Our AI will scan this image for payment confirmation.</div>
+        </div>
+      </div>
+      <button class="btn btn-lg btn-primary" style="width:100%" onclick="submitPaidReg('${id}', this)">Verify Payment & Register</button>
+    `;
+    document.getElementById('evModal').classList.add('open');
+  }
+
+  window.submitPaidReg = async function(id, btn) {
+    const fileInput = document.getElementById('payImg');
+    if (!fileInput || !fileInput.files.length) { toast('Please upload a screenshot', 'error'); return; }
+    
+    btn.disabled = true; btn.textContent = '🤖 AI Scanning Image...';
+    const formData = new FormData();
+    formData.append('paymentProof', fileInput.files[0]);
+
+    // Use the API helper we updated
+    quickReg(id, btn, true, formData);
+  };
+
+  function openRegFormModal(id) {
+    const u = Auth.user;
+    document.getElementById('mTitle').textContent = 'Complete Your Profile';
+    document.getElementById('mBody').innerHTML = `
+      <div style="text-align:left;margin-bottom:1.5rem">
+        <p style="color:var(--tx2);font-size:.88rem;margin-bottom:1rem">We need a few more details before you can register for events.</p>
+        <div class="form-group"><label class="form-label">Student Roll Number / ID *</label><input class="form-input" id="regRoll" placeholder="e.g. 21BCE001" value="${u.rollNo||''}"/></div>
+        <div class="form-group"><label class="form-label">Department / Course *</label><input class="form-input" id="regDept" placeholder="e.g. Computer Science" value="${u.department||''}"/></div>
+        <div class="form-group"><label class="form-label">Phone Number *</label><input class="form-input" id="regPhone" placeholder="e.g. 9876543210" value="${u.phone||''}"/></div>
+      </div>
+      <button class="btn btn-lg btn-primary" style="width:100%" onclick="submitRegForm('${id}', this)">Save & Continue</button>
+    `;
+    document.getElementById('evModal').classList.add('open');
+  }
+
+  window.submitRegForm = async function(id, btn) {
+    const rollNo = document.getElementById('regRoll').value.trim();
+    const department = document.getElementById('regDept').value.trim();
+    const phone = document.getElementById('regPhone').value.trim();
+    if (!rollNo || !department || !phone) { toast('Please fill all fields', 'error'); return; }
+    btn.disabled = true; btn.textContent = 'Updating...';
+    try {
+      await API.updateProfile({ rollNo, department, phone });
+      
+      // Update local storage and the local variable
+      const currentUser = Auth.user; 
+      currentUser.rollNo = rollNo; 
+      currentUser.department = department; 
+      currentUser.phone = phone; 
+      Auth.save(currentUser, Auth.token);
+      
+      // Call quickReg again with forceReg=true to skip profile check, but let it check for fee!
+      // Wait, if I call quickReg(id, btn, true), it skips fee check...
+      // Let's call quickReg(id, btn, false) instead! Since the profile is now updated, it will pass the first check.
+      quickReg(id, btn, false);
+    } catch (err) { toast(err.message, 'error'); btn.disabled = false; btn.textContent = 'Save & Continue'; }
+  };
+
+  function closeModal() { document.getElementById('evModal').classList.remove('open'); }
+  document.addEventListener('click', e => { if(e.target.id === 'evModal') closeModal(); });
+
+  async function renderRegistered() {
+    const el = document.getElementById('dashMain');
+    try {
+      const data = await API.getDashboard();
+      const regEvs = data.registeredEvents||[];
+      el.innerHTML = `
+        <div class="dash-header"><h1>My Registrations</h1><p>${regEvs.length} event${regEvs.length!==1?'s':''}</p></div>
+        <div class="section-box">
+          ${regEvs.map(ev=>`<div class="ev-row">
+            <div class="ev-ico">🎯</div>
+            <div style="flex:1">
+              <div style="font-size:.88rem;font-weight:600">${ev.title}</div>
+              <div style="font-size:.75rem;color:var(--tx2)">📅 ${fDate(ev.date)} · ⏰ ${ev.time} · 📍 ${ev.venue}</div>
+              <div style="margin-top:.3rem">${catTag(ev.category)}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.4rem">
+              <button class="btn btn-sm btn-success" onclick="showTicket('${ev._id}', '${ev.title.replace(/'/g, "\\'")}', '${ev.date}', '${ev.venue.replace(/'/g, "\\'")}')">🎟️ Show Ticket</button>
+              <button class="btn btn-sm btn-ghost" onclick="cancelReg('${ev._id}',this)" style="font-size: .75rem; color: var(--rd);">Cancel</button>
+            </div>
+          </div>`).join('')}
+          ${!regEvs.length?`<div style="text-align:center;padding:3rem"><div style="font-size:2.5rem;margin-bottom:1rem">📭</div><p style="color:var(--tx2)">No registrations yet.</p><button class="btn btn-md btn-primary" onclick="go('events')" style="margin-top:1rem">Browse Events</button></div>`:''}
+        </div>`;
+    } catch (err) { document.getElementById('dashMain').innerHTML=`<p style="color:var(--rd)">${err.message}</p>`; }
+  }
+
+  async function cancelReg(id, btn) {
+    btn.disabled=true;
+    try { await API.unregisterEvent(id); toast('Cancelled','info'); go('registered'); }
+    catch (err) { toast(err.message,'error'); btn.disabled=false; }
+  }
+
+  window.showTicket = function(eventId, title, date, venue) {
+    document.getElementById('mTitle').textContent = '🎟️ Event Ticket';
+    document.getElementById('mBody').innerHTML = `
+      <div style="text-align:center;margin-bottom:1.5rem">
+        <h3 style="margin-bottom:.5rem">${title}</h3>
+        <p style="color:var(--tx2);font-size:.88rem;margin-bottom:1.5rem">📅 ${fDate(date)} · 📍 ${venue}</p>
+        <div id="qrcodeBox" style="background:#fff;padding:1rem;border-radius:12px;display:inline-block;margin-bottom:1rem"></div>
+        <p style="color:var(--tx2);font-size:.8rem">Show this QR code at the entrance to check in.</p>
+      </div>
+    `;
+    
+    // Generate secure QR payload
+    const payload = JSON.stringify({ eventId: eventId, studentId: Auth.user._id });
+    new QRCode(document.getElementById('qrcodeBox'), {
+      text: payload,
+      width: 200,
+      height: 200,
+      colorDark : "#000000",
+      colorLight : "#ffffff",
+      correctLevel : QRCode.CorrectLevel.H
+    });
+
+    document.getElementById('evModal').classList.add('open');
+  };
+
+  function renderProfile() {
+    document.getElementById('dashMain').innerHTML = `
+      <div class="dash-header"><h1>Profile Settings</h1></div>
+      <div class="section-box">
+        <div style="display:flex;align-items:center;gap:1.4rem;padding-bottom:1.8rem;margin-bottom:1.8rem;border-bottom:1px solid var(--b1)">
+          <div class="avatar av-xl">${user.name[0].toUpperCase()}</div>
+          <div><h2 style="font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:800">${user.name}</h2><p style="color:var(--tx2)">${user.email}</p><div style="margin-top:.4rem"><span class="tag tag-v">🎓 Student</span></div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;margin-bottom:1.5rem">
+          <div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="pName" value="${user.name}"/></div>
+          <div class="form-group"><label class="form-label">Email</label><input class="form-input" value="${user.email}" disabled style="opacity:.5"/></div>
+        </div>
+        <div style="margin-bottom:1.5rem">
+          <label class="form-label" style="display:block;margin-bottom:.7rem">Interests</label>
+          <div style="display:flex;flex-wrap:wrap;gap:.4rem" id="intChips">
+            ${['Technical','Cultural','Sports','Hackathons','Workshops','AI','Arts','Entrepreneurship','Coding'].map(i=>`
+              <button class="int-chip-sm ${(user.interests||[]).includes(i)?'sel':''}" onclick="this.classList.toggle('sel')" data-v="${i}">${i}</button>`).join('')}
+          </div>
+        </div>
+        <button class="btn btn-md btn-primary" onclick="saveProfile()">Save Changes</button>
+      </div>`;
+  }
+
+  async function saveProfile() {
+    const name = document.getElementById('pName').value.trim();
+    const interests = [...document.querySelectorAll('.int-chip-sm.sel')].map(el=>el.dataset.v);
+    try {
+      await Promise.all([
+        API.updateProfile({ name }),
+        API.updateInterests({ interests }),
+      ]);
+      user.name=name; user.interests=interests;
+      Auth.save(user, Auth.token);
+      toast('Profile saved!','success');
+      buildSidebar();
+    } catch (err) { toast(err.message,'error'); }
+  }
+
+  async function renderFollowedFeed() {
+    const feedEl = document.getElementById('followedFeed');
+    try {
+      const updates = await API.getAnnouncements(); // This uses the feed endpoint check clubController
+      if (!updates || !updates.length) return;
+      
+      feedEl.innerHTML = `
+        <div class="section-box" style="margin-top:0">
+          <div class="box-title">🚀 Updates from Followed Clubs</div>
+          ${updates.map(up => `
+            <div class="notif pk" style="display:flex;gap:1rem;align-items:flex-start">
+              <div style="width:32px;height:32px;border-radius:8px;background:var(--s1);display:flex;align-items:center;justify-content:center;flex-shrink:0">📣</div>
+              <div>
+                <div style="font-weight:700;font-size:0.85rem;margin-bottom:0.2rem">${up.title} <span style="font-weight:400;color:var(--tx2);font-size:0.75rem">· ${up.clubId?.clubName}</span></div>
+                <div style="color:var(--tx2);line-height:1.4">${up.content}</div>
+                <div style="font-size:0.7rem;color:var(--tx2);margin-top:0.4rem">${fDate(up.createdAt)}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    } catch (e) { console.error('Feed error:', e); }
+  }
+
+  buildSidebar(); go('overview');
+</script>
+</body>
+</html>

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Admin Panel — CampusConnect</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+  <style>
+    .row{background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:.85rem 1rem;display:flex;align-items:center;gap:.9rem;margin-bottom:.5rem;transition:all .2s}
+    .row:hover{border-color:var(--b2)}
+    .bar{height:6px;background:var(--b1);border-radius:3px;margin-top:.35rem}
+    .bar-fill{height:100%;background:linear-gradient(90deg,var(--v),var(--tl));border-radius:3px}
+  </style>
+</head>
+<body>
+<nav class="navbar" id="mainNav"></nav>
+<div class="page-wrap">
+  <div class="container">
+    <div class="dash-layout">
+      <aside class="sidebar" id="sidebar"></aside>
+      <main class="dash-main" id="dashMain"></main>
+    </div>
+  </div>
+</div>
+<footer id="mainFooter"></footer>
+<script src="../js/app.js"></script>
+<script>
+  buildNav('');
+  if (!Auth.isLoggedIn) { window.location.href='login.html'; }
+  const user = Auth.user;
+  if (user?.role!=='superAdmin') { window.location.href='dashboard.html'; }
+
+  let page='overview';
+
+  function buildSidebar() {
+    const links=[
+      {k:'overview',i:'📊',l:'Analytics'},
+      {k:'clubs',i:'🏢',l:'Manage Clubs'},
+      {k:'events',i:'📅',l:'Manage Events'},
+      {k:'users',i:'👥',l:'Manage Users'},
+    ];
+    document.getElementById('sidebar').innerHTML=`
+      <div class="sidebar-profile">
+        <div class="avatar av-lg" style="background:linear-gradient(135deg,var(--am),var(--pk))">${user.name[0].toUpperCase()}</div>
+        <h3 style="margin-top:.6rem">${user.name}</h3>
+        <p>${user.email}</p>
+        <div style="margin-top:.4rem"><span class="tag tag-am">👑 Super Admin</span></div>
+      </div>
+      <nav class="sidebar-nav">
+        ${links.map(l=>`<button class="s-link${l.k===page?' active':''}" onclick="go('${l.k}')"><span class="ico">${l.i}</span>${l.l}</button>`).join('')}
+        <button class="s-link" onclick="Auth.clear()" style="margin-top:1rem;color:var(--rd)"><span class="ico">🚪</span>Logout</button>
+      </nav>`;
+  }
+
+  async function go(p) {
+    page=p; buildSidebar();
+    const el=document.getElementById('dashMain');
+    loading(el);
+    if (p==='overview') await renderAnalytics();
+    if (p==='clubs')    await renderClubs();
+    if (p==='events')   await renderEvents();
+    if (p==='users')    await renderUsers();
+  }
+
+  async function renderAnalytics() {
+    const el=document.getElementById('dashMain');
+    try {
+      const d=await API.getAnalytics();
+      el.innerHTML=`
+        <div class="dash-header"><h1>Platform Analytics 📊</h1><p>Overview of CampusConnect.</p></div>
+        <div class="stat-grid">
+          <div class="stat-card"><div class="ico">🎓</div><div class="val">${d.totalStudents}</div><div class="lbl">Students</div></div>
+          <div class="stat-card"><div class="ico">🏢</div><div class="val">${d.totalClubs}</div><div class="lbl">Active Clubs</div></div>
+          <div class="stat-card"><div class="ico">📅</div><div class="val">${d.totalEvents}</div><div class="lbl">Total Events</div></div>
+          <div class="stat-card"><div class="ico">✅</div><div class="val">${d.totalRegistrations||0}</div><div class="lbl">Registrations</div></div>
+        </div>
+        <div class="section-box">
+          <div class="box-title">📊 Events by Category</div>
+          ${d.categoryStats.map(c=>`<div style="margin-bottom:.9rem">
+            <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:.25rem"><span>${c._id}</span><span style="color:var(--tx2)">${c.count} event${c.count!==1?'s':''}</span></div>
+            <div class="bar"><div class="bar-fill" style="width:${Math.min(100,c.count*20)}%"></div></div>
+          </div>`).join('')}
+          ${!d.categoryStats.length?'<p style="color:var(--tx2);font-size:.85rem">No events yet.</p>':''}
+        </div>`;
+    } catch (err) { document.getElementById('dashMain').innerHTML=`<div class="dash-header"><h1>Analytics</h1></div><p style="color:var(--rd)">${err.message}</p>`; }
+  }
+
+  async function renderClubs() {
+    const el=document.getElementById('dashMain');
+    try {
+      const [approved, pending] = await Promise.all([API.getClubs(), API.getPendingClubs()]);
+      el.innerHTML=`
+        <div class="dash-header"><h1>Manage Clubs</h1></div>
+        ${pending.length?`<div class="section-box">
+          <div class="box-title">⏳ Pending Approval <span class="tag tag-am">${pending.length}</span></div>
+          ${pending.map(cl=>`<div class="row">
+            <div style="flex:1"><div style="font-size:.88rem;font-weight:600">${cl.clubName}</div><div style="font-size:.75rem;color:var(--tx2)">${cl.category} · By ${cl.ownerId?.name}</div></div>
+            <button class="btn btn-sm btn-success" onclick="approve('${cl._id}',this)">✅ Approve</button>
+            <button class="btn btn-sm btn-danger" onclick="delClub('${cl._id}',this)">Delete</button>
+          </div>`).join('')}
+        </div>`:''}
+        <div class="section-box">
+          <div class="box-title">✅ Approved Clubs <span class="tag tag-gn">${approved.length}</span></div>
+          ${approved.map(cl=>`<div class="row">
+            <div style="flex:1"><div style="font-size:.88rem;font-weight:600">${cl.clubName}</div><div style="font-size:.75rem;color:var(--tx2)">${cl.category} · ${cl.events?.length||0} events</div></div>
+            ${catTag(cl.category)}
+            <button class="btn btn-sm btn-danger" onclick="delClub('${cl._id}',this)">Remove</button>
+          </div>`).join('')}
+          ${!approved.length?'<p style="color:var(--tx2)">No approved clubs yet.</p>':''}
+        </div>`;
+    } catch (err) { document.getElementById('dashMain').innerHTML=`<p style="color:var(--rd)">${err.message}</p>`; }
+  }
+
+  let allAdminEvents = [];
+  async function renderEvents() {
+    const el=document.getElementById('dashMain');
+    try {
+      allAdminEvents = await API.getAdminEvents();
+      el.innerHTML=`
+        <div class="dash-header"><h1>Manage Events</h1><p>${allAdminEvents.length} total events</p></div>
+        <div class="section-box">
+          ${allAdminEvents.map(ev=>`<div class="row">
+            <div style="flex:1"><div style="font-size:.88rem;font-weight:600">${ev.title}</div><div style="font-size:.75rem;color:var(--tx2)">📅 ${fDate(ev.date)} · 📍 ${ev.venue} · 🏢 ${ev.clubId?.clubName||'—'}</div></div>
+            ${catTag(ev.category)}
+            <span class="tag tag-gn" style="white-space:nowrap">${ev.registeredStudents?.length||0} reg</span>
+            <button class="btn btn-sm btn-ghost" style="background:rgba(124,107,255,.1);color:var(--v);font-weight:600" onclick="viewEvPars('${ev._id}')">📋 View List</button>
+            <button class="btn btn-sm btn-danger" onclick="delEvent('${ev._id}',this)">Remove</button>
+          </div>`).join('')}
+          ${!allAdminEvents.length?'<p style="color:var(--tx2)">No events yet.</p>':''}
+        </div>`;
+    } catch (err) { document.getElementById('dashMain').innerHTML=`<p style="color:var(--rd)">${err.message}</p>`; }
+  }
+
+  async function renderUsers() {
+    const el=document.getElementById('dashMain');
+    try {
+      const users=await API.getAllUsers();
+      el.innerHTML=`
+        <div class="dash-header"><h1>Manage Users</h1><p>${users.length} total users</p></div>
+        <div class="section-box">
+          ${users.map(u=>`<div class="row">
+            <div class="avatar av-sm">${u.name[0].toUpperCase()}</div>
+            <div style="flex:1"><div style="font-size:.88rem;font-weight:600">${u.name}</div><div style="font-size:.74rem;color:var(--tx2)">${u.email}</div></div>
+            <span class="tag ${u.role==='student'?'tag-v':u.role==='clubAdmin'?'tag-pk':'tag-am'}">${u.role}</span>
+            ${u._id!==Auth.user?._id?`<button class="btn btn-sm btn-danger" onclick="delUser('${u._id}',this)">Remove</button>`:'<span class="tag tag-tl">You</span>'}
+          </div>`).join('')}
+        </div>`;
+    } catch (err) { document.getElementById('dashMain').innerHTML=`<p style="color:var(--rd)">${err.message}</p>`; }
+  }
+
+  async function approve(id, btn) {
+    btn.disabled=true; btn.textContent='…';
+    try { await API.approveClub(id); toast('Club approved!','success'); go('clubs'); }
+    catch (err) { toast(err.message,'error'); btn.disabled=false; btn.textContent='✅ Approve'; }
+  }
+
+  async function delClub(id, btn) {
+    if (!confirm('Remove this club?')) return;
+    btn.disabled=true;
+    try { await API.adminDeleteClub(id); toast('Club removed','info'); go('clubs'); }
+    catch (err) { toast(err.message,'error'); btn.disabled=false; }
+  }
+
+  async function delEvent(id, btn) {
+    if (!confirm('Remove this event?')) return;
+    btn.disabled=true;
+    try { await API.adminDeleteEvent(id); toast('Event removed','info'); go('events'); }
+    catch (err) { toast(err.message,'error'); btn.disabled=false; }
+  }
+
+  window.viewEvPars = function(id) {
+    const ev = allAdminEvents.find(e=>e._id===id);
+    if (!ev) return;
+    const pars = ev.registeredStudents || [];
+    if (!pars.length) return toast('No registered students for this event', 'error');
+    
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay open';
+    overlay.id = 'parsModal';
+    overlay.innerHTML = `
+      <div class="modal" style="max-width:800px;background:var(--s1)">
+        <div class="modal-header">
+          <div class="modal-title">Registration List: ${ev.title}</div>
+          <button class="modal-close" onclick="document.getElementById('parsModal').remove()">✕</button>
+        </div>
+        <div style="max-height:60vh;overflow-y:auto;padding:1.5rem">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
+            <p style="color:var(--tx2);font-size:.85rem;margin:0">Total Registrations: <strong>${pars.length}</strong></p>
+            <button class="btn btn-sm btn-success" onclick="exportEvCSV('${ev._id}')">⬇️ Download CSV for Faculty</button>
+          </div>
+          <table style="width:100%;text-align:left;border-collapse:collapse;font-size:.85rem">
+            <tr style="border-bottom:1px solid var(--b1)">
+              <th style="padding:.6rem .4rem;color:var(--tx2)">Roll No</th>
+              <th style="padding:.6rem .4rem;color:var(--tx2)">Name</th>
+              <th style="padding:.6rem .4rem;color:var(--tx2)">Department</th>
+              <th style="padding:.6rem .4rem;color:var(--tx2)">Email</th>
+            </tr>
+            ${pars.map(p => `
+              <tr style="border-bottom:1px solid var(--s2)">
+                <td style="padding:.6rem .4rem;font-weight:600;color:var(--v)">${p.rollNo||'N/A'}</td>
+                <td style="padding:.6rem .4rem">${p.name}</td>
+                <td style="padding:.6rem .4rem">${p.department||'N/A'}</td>
+                <td style="padding:.6rem .4rem;color:var(--tx2)">${p.email}</td>
+              </tr>
+            `).join('')}
+          </table>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+  };
+
+  window.exportEvCSV = function(id) {
+    const ev = allAdminEvents.find(e=>e._id===id);
+    if (!ev || !ev.registeredStudents) return;
+    const csvRows = ev.registeredStudents.map(p => '"' + (p.rollNo||'N/A') + '","' + (p.name||'') + '","' + (p.department||'N/A') + '","' + (p.email||'') + '"');
+    const csv = "RollNo,Name,Department,Email\n" + csvRows.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = ev.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '_participants.csv';
+    a.click();
+  };
+
+  async function delUser(id, btn) {
+    if (!confirm('Remove this user?')) return;
+    btn.disabled=true;
+    try { await API.deleteUser(id); toast('User removed','info'); go('users'); }
+    catch (err) { toast(err.message,'error'); btn.disabled=false; }
+  }
+
+  buildSidebar(); go('overview');
+</script>
+</body>
+</html>

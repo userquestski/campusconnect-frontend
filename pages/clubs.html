@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Clubs — CampusConnect</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+  <style>
+    .clubs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.4rem}
+    .club-card{background:var(--s1);border:1px solid var(--b1);border-radius:var(--rl);padding:1.8rem;transition:all .25s;cursor:pointer;position:relative;overflow:hidden}
+    .club-card:hover{transform:translateY(-4px);border-color:var(--b2);box-shadow:var(--sh)}
+    .cc-head{display:flex;align-items:center;gap:1rem;margin-bottom:1rem}
+    .cc-icon{width:50px;height:50px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.55rem;flex-shrink:0}
+    .cc-name{font-family:'Syne',sans-serif;font-size:.95rem;font-weight:700}
+    .cc-cat{font-size:.75rem;color:var(--tx2)}
+    .cc-desc{font-size:.83rem;color:var(--tx2);line-height:1.6;margin-bottom:1rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .cc-stats{display:flex;gap:1.2rem;padding-top:.8rem;border-top:1px solid var(--b1)}
+    .cc-stat{font-size:.75rem;color:var(--tx2)}
+    .cc-stat strong{display:block;font-size:.95rem;font-weight:700;color:var(--tx);font-family:'Syne',sans-serif}
+    @media(max-width:900px){.clubs-grid{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:580px){.clubs-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<nav class="navbar" id="mainNav"></nav>
+<div class="page-wrap">
+  <div class="page-hero" style="background:linear-gradient(135deg,rgba(255,107,157,.08),rgba(247,201,72,.04))">
+    <div class="container">
+      <span class="section-label">✦ Explore</span>
+      <h1>All Clubs</h1>
+      <p style="color:var(--tx2);margin-top:.4rem">Discover clubs that match your passion and interests.</p>
+    </div>
+  </div>
+  <div class="container" style="padding:2rem 0 4rem">
+    <div class="filters">
+      <div class="search-box"><span class="s-ico">🔍</span><input type="text" id="searchInput" placeholder="Search clubs…"/></div>
+      <div class="cat-pills" id="catPills"></div>
+    </div>
+    <div id="resultsInfo" style="margin-bottom:1.2rem;color:var(--tx2);font-size:.85rem"></div>
+    <div class="clubs-grid" id="clubsGrid"></div>
+  </div>
+</div>
+
+<!-- Club Modal -->
+<div class="modal-overlay" id="clubModal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title" id="mTitle"></div><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div id="mBody"></div>
+  </div>
+</div>
+
+<footer id="mainFooter"></footer>
+<script src="../js/app.js"></script>
+<script>
+  buildNav('clubs');
+
+  const CATS = ['All','Technical','Cultural','Sports','Entrepreneurship','Arts','Other'];
+  const COLORS = { Technical:'#7c6bff',Cultural:'#ff6b9d',Sports:'#4ade80',Entrepreneurship:'#f7c948',Arts:'#a594ff',Other:'#3de6c0',Hackathons:'#f7c948',Workshops:'#3de6c0' };
+  const ICONS = { Technical:'💻',Cultural:'🎭',Sports:'⚽',Entrepreneurship:'🚀',Arts:'🎨',Other:'🏢',Hackathons:'🏆',Workshops:'🔧' };
+
+  let allClubs = [];
+  let activeCat = 'All', search = '';
+
+  const pillsEl = document.getElementById('catPills');
+  CATS.forEach(c => {
+    const b = document.createElement('button');
+    b.className='cat-pill'+(c==='All'?' active':''); b.textContent=c;
+    b.onclick=()=>{ activeCat=c; document.querySelectorAll('.cat-pill').forEach(p=>p.classList.remove('active')); b.classList.add('active'); render(); };
+    pillsEl.appendChild(b);
+  });
+
+  document.getElementById('searchInput').addEventListener('input', e => { search=e.target.value.toLowerCase(); render(); });
+
+  async function loadClubs() {
+    const grid = document.getElementById('clubsGrid');
+    loading(grid);
+    try {
+      allClubs = await API.getClubs();
+      render();
+    } catch {
+      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:4rem"><p style="color:var(--tx2)">⚠️ Backend not connected. Start your server on port 5000.</p></div>`;
+    }
+  }
+
+  function render() {
+    let list = [...allClubs];
+    if (activeCat!=='All') list=list.filter(c=>c.category===activeCat);
+    if (search) list=list.filter(c=>c.clubName.toLowerCase().includes(search)||c.description.toLowerCase().includes(search));
+    document.getElementById('resultsInfo').textContent = `${list.length} club${list.length!==1?'s':''} found`;
+    const grid = document.getElementById('clubsGrid');
+    if (!list.length) { empty(grid,'No clubs found.','🏢'); return; }
+
+    grid.innerHTML = list.map(cl => {
+      const color = COLORS[cl.category]||'#7c6bff';
+      const icon  = ICONS[cl.category]||'🏢';
+      return `<div class="club-card" onclick="openModal('${cl._id}')">
+        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${color};border-radius:var(--rl) var(--rl) 0 0"></div>
+        <div class="cc-head">
+          <div class="cc-icon" style="background:${color}22">${cl.logoURL?`<img src="${cl.logoURL}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`:`${icon}`}</div>
+          <div><div class="cc-name">${cl.clubName}</div><div class="cc-cat">${cl.category}</div></div>
+        </div>
+        <div class="cc-desc">${cl.description}</div>
+        <div class="cc-stats">
+          <div class="cc-stat"><strong>${cl.events?.length||0}</strong>Events</div>
+          <div class="cc-stat"><strong>${new Date(cl.createdAt).getFullYear()}</strong>Founded</div>
+          <div class="cc-stat"><strong style="color:var(--gn)">✅</strong>Approved</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  async function toggleFollow(id, btn, isFollowing) {
+    if (!Auth.isLoggedIn) { window.location.href='login.html'; return; }
+    if (Auth.user.role!=='student') { toast('Only students can follow clubs','error'); return; }
+    btn.disabled = true;
+    try {
+      if (isFollowing) {
+        await API.unfollowClub(id);
+        toast('Unfollowed club', 'info');
+        const u = Auth.user; u.followingClubs = u.followingClubs.filter(c => c !== id); Auth.save(u, Auth.token);
+      } else {
+        await API.followClub(id);
+        toast('Followed club!', 'success');
+        const u = Auth.user; u.followingClubs = u.followingClubs || []; u.followingClubs.push(id); Auth.save(u, Auth.token);
+      }
+      closeModal();
+      openModal(id);
+    } catch(err) {
+      toast(err.message, 'error');
+      btn.disabled = false;
+    }
+  }
+
+  async function openModal(id) {
+    try {
+      const cl = await API.getClub(id);
+      const color = COLORS[cl.category]||'#7c6bff';
+      const icon  = ICONS[cl.category]||'🏢';
+      
+      let followBtnHtml = '';
+      if (Auth.user?.role === 'student') {
+          const isFollowing = (Auth.user.followingClubs || []).includes(cl._id);
+          followBtnHtml = `<button class="btn btn-sm ${isFollowing?'btn-success':'btn-primary'}" style="margin-top:1rem;margin-bottom:1.5rem" onclick="toggleFollow('${cl._id}', this, ${isFollowing})">${isFollowing?'✅ Following':'Follow Club'}</button>`;
+      }
+
+      document.getElementById('mTitle').textContent = cl.clubName;
+      document.getElementById('mBody').innerHTML = `
+        <div style="text-align:center;padding:2rem;background:${color}11;border-radius:var(--r);margin-bottom:1.5rem;font-size:3rem">${icon}</div>
+        <div style="margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;">
+            ${catTag(cl.category)}
+            <div style="font-size:0.8rem;color:var(--tx2)">👥 ${cl.followersCount || 0} followers</div>
+        </div>
+        ${followBtnHtml}
+        <p style="color:var(--tx2);font-size:.88rem;line-height:1.7;margin-bottom:1.5rem">${cl.description}</p>
+
+        <div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:1.2rem;margin-bottom:1.5rem">
+          <h4 style="font-family:'Syne',sans-serif;font-size:0.75rem;font-weight:700;color:var(--tx2);margin-bottom:.8rem;text-transform:uppercase">Contact Organizer</h4>
+          <div style="display:flex;flex-direction:column;gap:.6rem;font-size:.85rem">
+            ${cl.contactEmail ? `<div><span style="color:var(--tx2)">📧 Email:</span> <a href="mailto:${cl.contactEmail}" style="color:var(--v);text-decoration:none;font-weight:600">${cl.contactEmail}</a></div>` : ''}
+            ${cl.contactPhone ? `<div><span style="color:var(--tx2)">📞 Phone:</span> <span style="font-weight:600">${cl.contactPhone}</span></div>` : ''}
+            ${cl.socialLinks?.instagram ? `<div><span style="color:var(--tx2)">📸 Insta:</span> <a href="${cl.socialLinks.instagram}" target="_blank" style="color:var(--v);text-decoration:none;font-weight:600">${cl.socialLinks.instagram.split('/').pop() || 'Profile'}</a></div>` : ''}
+          </div>
+        </div>
+
+        ${(cl.gallery && cl.gallery.length > 0) ? `
+          <h4 style="font-family:'Syne',sans-serif;font-size:.85rem;font-weight:700;color:var(--tx2);margin-bottom:.8rem;letter-spacing:.5px;text-transform:uppercase">GALLERY</h4>
+          <div style="display:flex;gap:.5rem;overflow-x:auto;padding-bottom:1rem;margin-bottom:1rem">
+            ${cl.gallery.map(url => `<img src="${url}" style="height:100px;border-radius:8px;object-fit:cover;border:1px solid var(--b1)">`).join('')}
+          </div>
+        ` : ''}
+
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:.7rem;margin-bottom:1.4rem">
+          <div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:.8rem;text-align:center">
+            <div style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;color:${color}">${cl.events?.length||0}</div>
+            <div style="font-size:.7rem;color:var(--tx2)">Events</div>
+          </div>
+          <div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:.8rem;text-align:center">
+            <div style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;color:${color}">${new Date(cl.createdAt).getFullYear()}</div>
+            <div style="font-size:.7rem;color:var(--tx2)">Founded</div>
+          </div>
+        </div>
+        ${cl.events?.length?`<h4 style="font-family:'Syne',sans-serif;font-size:.85rem;font-weight:700;color:var(--tx2);margin-bottom:.8rem;letter-spacing:.5px;text-transform:uppercase">EVENTS</h4>
+        ${cl.events.map(ev=>`<div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:.85rem;margin-bottom:.5rem;display:flex;justify-content:space-between;align-items:center">
+          <div style="font-size:.85rem;font-weight:600">${ev.title||ev}</div>
+          <span style="font-size:.72rem;color:var(--tx2)">${ev.date?fDate(ev.date):''}</span>
+        </div>`).join('')}`:''}
+        <a href="events.html" class="btn btn-md btn-primary" style="width:100%;margin-top:1rem;display:flex">View All Events →</a>`;
+      document.getElementById('clubModal').classList.add('open');
+    } catch { toast('Failed to load club details','error'); }
+  }
+
+  function closeModal() { document.getElementById('clubModal').classList.remove('open'); }
+  document.getElementById('clubModal').addEventListener('click', e=>{if(e.target===e.currentTarget)closeModal();});
+
+  loadClubs();
+</script>
+</body>
+</html>

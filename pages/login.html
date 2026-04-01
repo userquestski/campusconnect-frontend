@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Login — CampusConnect</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+  <style>
+    .auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:6rem 1.5rem 3rem;position:relative;overflow:hidden}
+    .orb{position:absolute;border-radius:50%;filter:blur(72px);pointer-events:none}
+    .o1{width:400px;height:400px;background:rgba(124,107,255,.15);top:-100px;left:-100px;animation:float 8s ease-in-out infinite}
+    .o2{width:300px;height:300px;background:rgba(61,230,192,.1);bottom:-50px;right:-80px;animation:float 10s ease-in-out infinite reverse}
+    .auth-card{background:var(--s1);border:1px solid var(--b2);border-radius:var(--rxl);padding:3rem;width:100%;max-width:430px;position:relative;z-index:1;animation:scaleIn .4s ease}
+    .logo-text{font-family:'Syne',sans-serif;font-size:1.35rem;font-weight:800;background:linear-gradient(135deg,var(--v),var(--tl));-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-align:center;display:block;margin-bottom:2rem}
+    .auth-title{font-family:'Syne',sans-serif;font-size:1.55rem;font-weight:800;text-align:center;margin-bottom:.4rem}
+    .auth-sub{color:var(--tx2);text-align:center;font-size:.85rem;margin-bottom:2rem}
+    .role-tabs{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:1.8rem}
+    .r-tab{padding:.62rem;border-radius:10px;border:1px solid var(--b2);background:transparent;color:var(--tx2);font-family:inherit;font-size:.84rem;font-weight:500;cursor:pointer;transition:all .2s;text-align:center}
+    .r-tab.active{background:rgba(124,107,255,.15);border-color:rgba(124,107,255,.4);color:var(--v2)}
+    .divider{display:flex;align-items:center;gap:1rem;margin:.8rem 0}
+    .divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--b1)}
+    .divider span{color:var(--tx2);font-size:.75rem}
+    .demo-btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.4rem}
+  </style>
+</head>
+<body>
+<nav class="navbar" id="mainNav"></nav>
+<div class="auth-wrap">
+  <div class="orb o1"></div><div class="orb o2"></div>
+  <div class="auth-card">
+    <span class="logo-text">CampusConnect</span>
+    <h1 class="auth-title">Welcome back 👋</h1>
+    <p class="auth-sub">Sign in to your account to continue</p>
+
+    <div class="role-tabs">
+      <button class="r-tab active" id="tab-student" onclick="setRole('student')">🎓 Student</button>
+      <button class="r-tab" id="tab-clubAdmin" onclick="setRole('clubAdmin')">🏢 Club Admin</button>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:1.1rem">
+      <div class="form-group"><label class="form-label">Email Address</label><input class="form-input" type="email" id="email" placeholder="yourname@college.edu"/></div>
+      <div class="form-group"><label class="form-label">Password</label><input class="form-input" type="password" id="password" placeholder="Enter your password" onkeydown="if(event.key==='Enter')handleLogin()"/></div>
+      <button class="btn btn-lg btn-primary" id="loginBtn" onclick="handleLogin()" style="width:100%;margin-top:.4rem">Sign In</button>
+    </div>
+
+    <div class="divider"><span>or try demo accounts</span></div>
+    <div class="demo-btns">
+      <button class="btn btn-sm btn-ghost" onclick="demoLogin('student')">🎓 Student</button>
+      <button class="btn btn-sm btn-ghost" onclick="demoLogin('clubAdmin')">🏢 Club Admin</button>
+      <button class="btn btn-sm btn-ghost" onclick="demoLogin('superAdmin')">👑 Admin</button>
+    </div>
+
+    <p style="text-align:center;margin-top:1.8rem;font-size:.85rem;color:var(--tx2)">
+      Don't have an account? <a href="register.html" style="color:var(--v2);font-weight:600">Sign up free</a>
+    </p>
+  </div>
+</div>
+<script src="../js/app.js"></script>
+<script>
+  buildNav('');
+  if (Auth.isLoggedIn) { const u=Auth.user; window.location.href=u.role==='clubAdmin'?'club-dashboard.html':u.role==='superAdmin'?'admin.html':'dashboard.html'; }
+
+  let role = 'student';
+  function setRole(r) {
+    role = r;
+    document.querySelectorAll('.r-tab').forEach(t=>t.classList.remove('active'));
+    document.getElementById('tab-'+r).classList.add('active');
+  }
+
+  async function handleLogin() {
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    if (!email||!password) { toast('Please fill in all fields','error'); return; }
+    const btn = document.getElementById('loginBtn');
+    btn.textContent='Signing in…'; btn.disabled=true;
+    try {
+      const data = await API.login({ email, password });
+      Auth.save(data.user, data.token);
+      toast('Login successful! Redirecting…','success');
+      setTimeout(() => {
+        const r = data.user.role;
+        window.location.href = r==='clubAdmin'?'club-dashboard.html':r==='superAdmin'?'admin.html':'dashboard.html';
+      }, 700);
+    } catch (err) {
+      toast(err.message||'Login failed','error');
+      btn.textContent='Sign In'; btn.disabled=false;
+    }
+  }
+
+  // Demo: creates temp accounts in backend, or uses pre-seeded ones
+  async function demoLogin(r) {
+    const demos = {
+      student:    { name:'Demo Student',    email:'demo.student@college.edu',    password:'demo1234', role:'student',    interests:['Technical','Hackathons','AI'] },
+      clubAdmin:  { name:'Demo Club Admin', email:'demo.clubadmin@college.edu',  password:'demo1234', role:'clubAdmin'  },
+      superAdmin: { name:'Demo Super Admin',email:'demo.superadmin@college.edu', password:'demo1234', role:'superAdmin' },
+    };
+    const d = demos[r];
+    try {
+      // Try login first
+      const data = await API.login({ email: d.email, password: d.password });
+      Auth.save(data.user, data.token);
+    } catch {
+      // If not exists, register
+      try {
+        const data = await API.register(d);
+        Auth.save(data.user, data.token);
+      } catch (err) {
+        toast(err.message,'error'); return;
+      }
+    }
+    toast(`Logged in as Demo ${r}!`,'success');
+    setTimeout(() => { window.location.href = r==='clubAdmin'?'club-dashboard.html':r==='superAdmin'?'admin.html':'dashboard.html'; }, 700);
+  }
+</script>
+</body>
+</html>

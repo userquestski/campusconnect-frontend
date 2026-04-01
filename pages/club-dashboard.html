@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Club Dashboard — CampusConnect</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+  <style>
+    .ev-row{background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:.9rem 1.1rem;display:flex;align-items:center;gap:.9rem;margin-bottom:.6rem}
+    .ev-ico{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;background:rgba(124,107,255,.15)}
+    .par-row{display:flex;align-items:center;gap:.8rem;padding:.7rem 0;border-bottom:1px solid var(--b1)}
+    .par-row:last-child{border-bottom:none}
+    .g2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+    .g2-full{grid-column:1/-1}
+    @media(max-width:640px){ .g2{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+<nav class="navbar" id="mainNav"></nav>
+<div class="page-wrap">
+  <div class="container">
+    <div class="dash-layout">
+      <aside class="sidebar" id="sidebar"></aside>
+      <main class="dash-main" id="dashMain"></main>
+    </div>
+  </div>
+</div>
+<footer id="mainFooter"></footer>
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<script src="../js/app.js"></script>
+<script>
+  buildNav('');
+  if (!Auth.isLoggedIn) { window.location.href='login.html'; }
+  const user = Auth.user;
+  if (user?.role==='student') window.location.href='dashboard.html';
+
+  let page = 'overview';
+  let myClub = null;
+  let myEvents = [];
+
+  function buildSidebar() {
+    const links=[
+      {k:'overview',i:'🏠',l:'Overview'},
+      {k:'events',i:'📅',l:'My Events'},
+      {k:'create',i:'➕',l:'Post New Event'},
+      {k:'participants',i:'👥',l:'Participants'},
+      {k:'scan',i:'📷',l:'Scan Tickets'},
+      {k:'club',i:'🏢',l:'Club Profile'},
+    ];
+    document.getElementById('sidebar').innerHTML = `
+      <div class="sidebar-profile">
+        <div class="avatar av-lg">${user.name[0].toUpperCase()}</div>
+        <h3 style="margin-top:.6rem">${user.name}</h3>
+        <p style="font-size:.72rem;color:var(--tx2)">${myClub?.clubName||'Club Admin'}</p>
+        <div style="margin-top:.4rem"><span class="tag tag-pk">🏢 Club Admin</span></div>
+      </div>
+      <nav class="sidebar-nav">
+        ${links.map(l=>`<button class="s-link${l.k===page?' active':''}" onclick="go('${l.k}')"><span class="ico">${l.i}</span>${l.l}</button>`).join('')}
+        <button class="s-link" onclick="Auth.clear()" style="margin-top:1rem;color:var(--rd)"><span class="ico">🚪</span>Logout</button>
+      </nav>`;
+  }
+
+  async function loadClubData() {
+    try {
+      const data = await API.getMyClub();
+      myClub = data;
+      myEvents = data.events || [];
+      console.log('Club data loaded:', myClub);
+    } catch (err) { 
+      console.warn('No club found for this user yet.');
+      myClub = null; 
+      myEvents = []; 
+    }
+  }
+
+  let html5QrcodeScanner = null;
+
+  async function go(p) {
+    // If navigating away from scanner, stop the camera
+    if (page === 'scan' && html5QrcodeScanner) {
+      try { html5QrcodeScanner.clear(); html5QrcodeScanner = null; } catch(e){}
+    }
+    
+    page=p; 
+    // Always refresh data when switching tabs to ensure UI is up to date
+    if (['overview', 'events', 'participants', 'club'].includes(p)) {
+      await loadClubData();
+    }
+    buildSidebar();
+    const el=document.getElementById('dashMain');
+    loading(el);
+    if (p==='overview')    await renderOverview();
+    if (p==='events')      renderMyEvents();
+    if (p==='create')      renderCreateForm();
+    if (p==='participants')renderParticipants();
+    if (p==='scan')        renderScanner();
+    if (p==='club')        renderClubProfile();
+  }
+
+  async function renderOverview() {
+    const el=document.getElementById('dashMain');
+    if (!myClub) {
+      el.innerHTML=`<div class="dash-header"><h1>Club Dashboard 🏢</h1></div>
+        <div class="section-box" style="text-align:center;padding:3rem">
+          <div style="font-size:2.5rem;margin-bottom:1rem">🏢</div>
+          <h3 style="margin-bottom:.5rem">No club registered yet</h3>
+          <p style="color:var(--tx2);margin-bottom:1.5rem">Your club registration may be pending approval from the super admin.</p>
+          <button class="btn btn-md btn-primary" onclick="go('club')">Setup Club Profile</button>
+        </div>`;
+      return;
+    }
+    const totalReg = myEvents.reduce((s,e)=>s+(e.registeredStudents?.length||0),0);
+    el.innerHTML = `
+      <div class="dash-header"><h1>Club Dashboard 🏢</h1><p>Managing: <strong>${myClub.clubName}</strong></p></div>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="ico">📅</div><div class="val">${myEvents.length}</div><div class="lbl">Total Events</div></div>
+        <div class="stat-card"><div class="ico">👥</div><div class="val">${totalReg}</div><div class="lbl">Total Registrations</div></div>
+        <div class="stat-card"><div class="ico">✅</div><div class="val" style="color:${myClub.isApproved?'var(--gn)':'var(--am)'}">${myClub.isApproved?'Active':'Pending'}</div><div class="lbl">Club Status</div></div>
+        <div class="stat-card"><div class="ico">🏷</div><div class="val" style="font-size:1rem">${myClub.category}</div><div class="lbl">Category</div></div>
+      </div>
+      ${!myClub.isApproved?`<div style="background:rgba(247,201,72,.1);border:1px solid rgba(247,201,72,.3);border-radius:10px;padding:1rem;margin-bottom:1.4rem;font-size:.85rem">⚠️ Your club is pending approval from the super admin. You can still create events once approved.</div>`:''}
+      <div class="section-box">
+        <div class="box-title">📅 Recent Events <button class="btn btn-sm btn-primary" onclick="go('create')">+ New Event</button></div>
+        ${myEvents.slice(0,10).map(ev=>`<div class="ev-row">
+          <div class="ev-ico">🎯</div>
+          <div style="flex:1"><div style="font-size:.88rem;font-weight:600">${ev.title}</div><div style="font-size:.75rem;color:var(--tx2)">${fDate(ev.date)} · ${ev.venue}</div></div>
+          <div style="text-align:right"><div style="font-weight:700">${ev.registeredStudents?.length||0}</div><div style="font-size:.7rem;color:var(--tx2)">registered</div></div>
+          ${catTag(ev.category)}
+        </div>`).join('')}
+        ${!myEvents.length?'<p style="color:var(--tx2);font-size:.85rem">No events yet. <button class="btn btn-sm btn-ghost" onclick="go(\'create\')" style="margin-left:.5rem">Create one →</button></p>':''}
+      </div>`;
+  }
+
+  function renderMyEvents() {
+    document.getElementById('dashMain').innerHTML = `
+      <div class="dash-header"><h1>My Events</h1><p>${myEvents.length} events</p></div>
+      <div class="section-box">
+        <div class="box-title">All Events <button class="btn btn-sm btn-primary" onclick="go('create')">+ New Event</button></div>
+        ${myEvents.map(ev=>`<div class="ev-row">
+          <div class="ev-ico">🎯</div>
+          <div style="flex:1">
+            <div style="font-size:.88rem;font-weight:600">${ev.title}</div>
+            <div style="font-size:.75rem;color:var(--tx2)">📅 ${fDate(ev.date)} · ⏰ ${ev.time} · 📍 ${ev.venue}</div>
+            <div style="margin-top:.3rem">${catTag(ev.category)}</div>
+          </div>
+          <div style="text-align:center;margin-right:.5rem"><div style="font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:800">${ev.registeredStudents?.length||0}</div><div style="font-size:.7rem;color:var(--tx2)">registered</div></div>
+          <div style="display:flex;flex-direction:column;gap:.4rem">
+            <button class="btn btn-sm btn-primary" onclick="renderEditForm('${ev._id}')">Edit</button>
+            <button class="btn btn-sm btn-danger" onclick="delEvent('${ev._id}',this)">Delete</button>
+          </div>
+        </div>`).join('')}
+        ${!myEvents.length?'<p style="color:var(--tx2)">No events yet.</p>':''}
+      </div>`;
+  }
+
+  function renderCreateForm() {
+    document.getElementById('dashMain').innerHTML = `
+      <div class="dash-header"><h1>Post New Event</h1><p>Fill in the details below.</p></div>
+      <div class="section-box">
+        <div class="g2">
+          <div class="form-group g2-full"><label class="form-label">Event Title *</label><input class="form-input" id="eTitle" placeholder="e.g. Annual Coding Hackathon 2025"/></div>
+          <div class="form-group g2-full"><label class="form-label">Description *</label><textarea class="form-input" id="eDesc" rows="3" placeholder="Describe your event…"></textarea></div>
+          <div class="form-group"><label class="form-label">Category *</label>
+            <select class="form-select" id="eCat">
+              <option value="">Select…</option>
+              <option>Technical</option><option>Cultural</option><option>Sports</option>
+              <option>Hackathons</option><option>Workshops</option><option>Entrepreneurship</option><option>Arts</option>
+            </select>
+          </div>
+          <div class="form-group g2-full"><label class="form-label">External Registration Link (Optional)</label><input class="form-input" id="eExtLink" placeholder="e.g. https://unstop.com/..."/></div>
+          <div class="form-group g2-full"><label class="form-label">Special Guests (Comma separated names)</label><textarea class="form-input" id="eGuests" rows="2" placeholder="e.g. Dr. Satya Nadella, Mr. Sundar Pichai"></textarea></div>
+          <div class="form-group"><label class="form-label">Venue *</label><input class="form-input" id="eVenue" placeholder="e.g. Main Auditorium"/></div>
+          <div class="form-group"><label class="form-label">Date *</label><input class="form-input" type="date" id="eDate"/></div>
+          <div class="form-group"><label class="form-label">Time *</label><input class="form-input" type="time" id="eTime"/></div>
+          <div class="form-group"><label class="form-label">Registration Deadline *</label><input class="form-input" type="date" id="eDeadline"/></div>
+          <div class="form-group"><label class="form-label">Max Participants</label><input class="form-input" type="number" id="eMax" placeholder="e.g. 100" value="100"/></div>
+          <div class="form-group"><label class="form-label">Participation Fee (₹)</label><input class="form-input" type="number" id="eFee" value="0" placeholder="0 = Free"/></div>
+          <div class="form-group"><label class="form-label">Payment Receiver UPI / Phone (Req if Fee > 0)</label><input class="form-input" id="eUpi" placeholder="e.g. 9876543210@ybl"/></div>
+          <div class="form-group"><label class="form-label">Event Coordinator Name *</label><input class="form-input" id="eCoordName" placeholder="e.g. Rahul Sharma"/></div>
+          <div class="form-group"><label class="form-label">Coordinator Contact *</label><input class="form-input" id="eCoordPhone" placeholder="e.g. 9876543210"/></div>
+          <div class="form-group g2-full" style="display:flex;gap:.8rem;margin-top:.5rem">
+            <button class="btn btn-lg btn-primary" id="postBtn" onclick="postEvent()">🚀 Post Event</button>
+            <button class="btn btn-lg btn-ghost" onclick="go('events')">Cancel</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  async function postEvent() {
+    const title=document.getElementById('eTitle').value.trim();
+    const description=document.getElementById('eDesc').value.trim();
+    const category=document.getElementById('eCat').value;
+    const venue=document.getElementById('eVenue').value.trim();
+    const date=document.getElementById('eDate').value;
+    const time=document.getElementById('eTime').value;
+    const registrationDeadline=document.getElementById('eDeadline').value;
+    const externalLink=document.getElementById('eExtLink').value.trim();
+    const guests=document.getElementById('eGuests').value.trim();
+    const coordinatorName=document.getElementById('eCoordName').value.trim();
+    const coordinatorPhone=document.getElementById('eCoordPhone').value.trim();
+
+    if (!title||!description||!category||!venue||!date||!time||!registrationDeadline||!coordinatorName||!coordinatorPhone) { toast('Fill all required fields including coordinator info','error'); return; }
+    const btn=document.getElementById('postBtn'); btn.textContent='Posting…'; btn.disabled=true;
+    
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('description', description);
+    formData.append('category', category);
+    formData.append('venue', venue);
+    formData.append('date', date);
+    formData.append('time', time);
+    formData.append('registrationDeadline', registrationDeadline);
+    formData.append('maxParticipants', +document.getElementById('eMax').value||100);
+    formData.append('participationFee', +document.getElementById('eFee').value||0);
+    formData.append('externalLink', externalLink);
+    formData.append('paymentUpi', document.getElementById('eUpi')?.value||'');
+    formData.append('guests', guests);
+    formData.append('coordinatorName', coordinatorName);
+    formData.append('coordinatorPhone', coordinatorPhone);
+
+    try {
+      await API.createEvent(formData);
+      toast('🎉 Event posted!','success');
+      await loadClubData();
+      setTimeout(()=>go('events'),700);
+    } catch (err) { toast(err.message,'error'); btn.textContent='🚀 Post Event'; btn.disabled=false; }
+  }
+
+  function renderParticipants() {
+    const allPars = myEvents.flatMap(ev=>(ev.registeredStudents||[]).map(s=>{
+      const proof = (ev.paymentProofs || []).find(p => p.studentId === s._id || p.studentId?._id === s._id);
+      return {
+        ...s,
+        eventTitle:ev.title,
+        proofURL: proof?.proofURL,
+        didAttend: (ev.attendedStudents||[]).includes(s._id)
+      };
+    }));
+    document.getElementById('dashMain').innerHTML = `
+      <div class="dash-header" style="display:flex;justify-content:space-between;align-items:flex-end">
+        <div><h1>Participants</h1><p>${allPars.length} total registrations across your events</p></div>
+        <button class="btn btn-sm btn-success" onclick="exportClubCSV()">⬇️ Export CSV</button>
+      </div>
+      <div class="section-box">
+        ${allPars.map(p=>`<div class="par-row">
+          <div class="avatar av-md">${(p.name||'?')[0].toUpperCase()}</div>
+          <div style="flex:1">
+            <div style="font-size:.88rem;font-weight:600">${p.name||'Student'} <span style="font-weight:400;color:var(--tx2);margin-left:.3rem">(${p.rollNo||'No Roll No'})</span></div>
+            <div style="font-size:.74rem;color:var(--tx2)">${p.email||''} · ${p.department||'Unknown Dept'}</div>
+            ${p.proofURL ? `<a href="${p.proofURL}" target="_blank" style="font-size:.7rem;color:var(--v);text-decoration:none;font-weight:600;margin-top:.3rem;display:inline-block">🖼️ View Payment Screenshot</a>` : ''}
+          </div>
+          <div style="text-align:right"><div style="font-size:.8rem;font-weight:500">${p.eventTitle}</div></div>
+          <span class="tag ${p.didAttend ? 'tag-gn' : 'tag-am'}" style="margin-left:1rem">${p.didAttend ? '✅ Attended' : '⏳ Registered'}</span>
+        </div>`).join('')}
+        ${!allPars.length?'<p style="color:var(--tx2)">No registrations yet.</p>':''}
+      </div>`;
+  }
+
+  function renderScanner() {
+    document.getElementById('dashMain').innerHTML = `
+      <div class="dash-header"><h1>Scan Tickets 📷</h1><p>Hold the student's QR code up to the camera to instantly check them in.</p></div>
+      <div class="section-box" style="text-align:center">
+        <div id="reader" style="width:100%;max-width:500px;margin:1rem auto;border-radius:12px;overflow:hidden;border:1px solid var(--b2);background:#fff"></div>
+      </div>`;
+    
+    // Slight delay to ensure DOM is ready before injecting scanner
+    setTimeout(() => {
+      html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, false);
+      html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+    }, 100);
+  }
+
+  window.isScanning = false;
+  async function onScanSuccess(decodedText, decodedResult) {
+    if (window.isScanning) return; // Debounce
+    window.isScanning = true;
+    try {
+      const payload = JSON.parse(decodedText);
+      if (!payload.eventId || !payload.studentId) throw new Error("Invalid Format");
+      
+      if (html5QrcodeScanner) html5QrcodeScanner.pause(true); // Pause scanning
+      
+      const res = await api('POST', '/events/' + payload.eventId + '/attendance', { studentId: payload.studentId }, true);
+      toast(res.message || '✅ Student Checked In!', 'success');
+      
+      setTimeout(() => { if (html5QrcodeScanner) html5QrcodeScanner.resume(); window.isScanning = false; }, 3000);
+    } catch (err) {
+      toast(err.message || 'Error processing ticket! Invalid QR?', 'error');
+      setTimeout(() => { window.isScanning = false; }, 2000);
+    }
+  }
+
+  function onScanFailure(error) {
+    // Ignore routine frame read failures
+  }
+
+  window.exportClubCSV = function() {
+    const allPars = myEvents.flatMap(ev=>(ev.registeredStudents||[]).map(s=>({
+      ...s, eventTitle:ev.title, didAttend: (ev.attendedStudents||[]).includes(s._id)
+    })));
+    if (!allPars.length) return toast('No data to export', 'error');
+    const csvRows = allPars.map(p => '"' + p.eventTitle + '","' + (p.rollNo||'N/A') + '","' + (p.name||'') + '","' + (p.department||'N/A') + '","' + (p.email||'') + '","' + (p.didAttend?'Attended':'Registered') + '"');
+    const csv = "Event,RollNo,Name,Department,Email,Status\\n" + csvRows.join('\\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'all_participants.csv';
+    a.click();
+  };
+
+  async function renderClubProfile() {
+    const el=document.getElementById('dashMain');
+    if (!myClub) {
+      el.innerHTML=`<div class="dash-header"><h1>Club Profile</h1></div>
+        <div class="section-box">
+          <p style="color:var(--tx2);margin-bottom:1.5rem">Register your club to get started.</p>
+          <div class="g2">
+            <div class="form-group g2-full"><label class="form-label">Club Name *</label><input class="form-input" id="cName" placeholder="e.g. Coding Club"/></div>
+            <div class="form-group g2-full"><label class="form-label">Description *</label><textarea class="form-input" id="cDesc" rows="3"></textarea></div>
+            <div class="form-group"><label class="form-label">Category *</label>
+              <select class="form-select" id="cCat"><option value="">Select…</option><option>Technical</option><option>Cultural</option><option>Sports</option><option>Hackathons</option><option>Entrepreneurship</option><option>Arts</option></select>
+            </div>
+            <div class="form-group"><label class="form-label">Contact Email *</label><input class="form-input" id="cEmail" placeholder="e.g. club@college.edu"/></div>
+            <div class="form-group"><label class="form-label">Contact Phone *</label><input class="form-input" id="cPhone" placeholder="e.g. 9876543210"/></div>
+            <div class="form-group g2-full"><button class="btn btn-lg btn-primary" id="cBtn" onclick="createClub()">Register Club</button></div>
+          </div>
+        </div>`;
+      return;
+    }
+    el.innerHTML=`
+      <div class="dash-header"><h1>Club Profile</h1></div>
+      <div class="section-box">
+        <div style="display:flex;align-items:center;gap:1.4rem;padding-bottom:1.8rem;margin-bottom:1.8rem;border-bottom:1px solid var(--b1)">
+          <div style="width:68px;height:68px;border-radius:18px;background:rgba(124,107,255,.15);display:flex;align-items:center;justify-content:center;font-size:2rem">🏢</div>
+          <div><h2 style="font-family:'Syne',sans-serif;font-size:1.25rem;font-weight:800">${myClub.clubName}</h2><p style="color:var(--tx2)">${myClub.category}</p>
+          <span class="tag ${myClub.isApproved?'tag-gn':'tag-am'}" style="margin-top:.4rem;display:inline-flex">${myClub.isApproved?'✅ Approved':'⏳ Pending Approval'}</span></div>
+        </div>
+        <div class="g2">
+          <div class="form-group g2-full"><label class="form-label">Club Name</label><input class="form-input" id="upName" value="${myClub.clubName}"/></div>
+          <div class="form-group g2-full"><label class="form-label">Description</label><textarea class="form-input" id="upDesc" rows="3">${myClub.description}</textarea></div>
+          <div class="form-group"><label class="form-label">Contact Email</label><input class="form-input" id="upEmail" value="${myClub.contactEmail||''}" placeholder="club@college.edu"/></div>
+          <div class="form-group"><label class="form-label">Contact Phone</label><input class="form-input" id="upPhone" value="${myClub.contactPhone||''}" placeholder="9876543210"/></div>
+          <div class="form-group"><label class="form-label">Instagram</label><input class="form-input" id="upIG" value="${myClub.socialLinks?.instagram||''}" placeholder="@yourclub"/></div>
+          <div class="form-group"><label class="form-label">Website</label><input class="form-input" id="upWeb" value="${myClub.socialLinks?.website||''}" placeholder="https://…"/></div>
+          
+          <div class="form-group g2-full"><label class="form-label">Gallery Images (Comma separated URLs)</label>
+            <textarea class="form-input" id="upGallery" rows="2" placeholder="https://img1.jpg, https://img2.jpg">${(myClub.gallery || []).join(', ')}</textarea>
+            <p style="font-size:0.75rem;color:var(--tx2);margin-top:0.3rem">Add links to your past event photos. Comma separated.</p>
+          </div>
+
+          <div class="form-group g2-full"><button class="btn btn-md btn-primary" onclick="updateClub()">Save Changes</button></div>
+        </div>
+      </div>`;
+  }
+
+  async function createClub() {
+    const clubName=document.getElementById('cName').value.trim();
+    const description=document.getElementById('cDesc').value.trim();
+    const category=document.getElementById('cCat').value;
+    const contactEmail=document.getElementById('cEmail').value.trim();
+    const contactPhone=document.getElementById('cPhone').value.trim();
+    if (!clubName||!description||!category||!contactEmail||!contactPhone) { toast('Fill all required fields','error'); return; }
+    const btn=document.getElementById('cBtn'); btn.textContent='Registering…'; btn.disabled=true;
+    try {
+      await API.createClub({ clubName, description, category, contactEmail, contactPhone });
+      toast('Club registered! Awaiting admin approval.','success');
+      await loadClubData(); buildSidebar(); go('overview');
+    } catch (err) { toast(err.message,'error'); btn.textContent='Register Club'; btn.disabled=false; }
+  }
+
+  async function updateClub() {
+    const clubName=document.getElementById('upName').value.trim();
+    const description=document.getElementById('upDesc').value.trim();
+    const contactEmail=document.getElementById('upEmail').value.trim();
+    const contactPhone=document.getElementById('upPhone').value.trim();
+    const instagram=document.getElementById('upIG').value.trim();
+    const website=document.getElementById('upWeb').value.trim();
+    const galleryRaw=document.getElementById('upGallery').value.trim();
+    const gallery = galleryRaw ? galleryRaw.split(',').map(s=>s.trim()).filter(Boolean) : [];
+    try {
+      await API.updateClub(myClub._id, { clubName, description, contactEmail, contactPhone, socialLinks:{ instagram, website }, gallery });
+      toast('Club updated!','success');
+      await loadClubData();
+    } catch (err) { toast(err.message,'error'); }
+  }
+
+  async function delEvent(id, btn) {
+    btn.disabled=true;
+    try {
+      await API.deleteEvent(id);
+      toast('Event deleted','info');
+      await loadClubData(); renderMyEvents();
+    } catch (err) { toast(err.message,'error'); btn.disabled=false; }
+  }
+
+  window.renderEditForm = function(id) {
+    const ev = myEvents.find(e => e._id === id);
+    if (!ev) return;
+    document.getElementById('dashMain').innerHTML = `
+      <div class="dash-header"><h1>Edit Event</h1><p>Updating: ${ev.title}</p></div>
+      <div class="section-box">
+        <div class="g2">
+          <div class="form-group g2-full"><label class="form-label">Event Title</label><input class="form-input" id="edTitle" value="${ev.title}"/></div>
+          <div class="form-group g2-full"><label class="form-label">Description</label><textarea class="form-input" id="edDesc" rows="3">${ev.description}</textarea></div>
+          <div class="form-group"><label class="form-label">Venue</label><input class="form-input" id="edVenue" value="${ev.venue}"/></div>
+          <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="edDate" value="${ev.date.split('T')[0]}"/></div>
+          <div class="form-group"><label class="form-label">Time</label><input class="form-input" type="time" id="edTime" value="${ev.time}"/></div>
+          <div class="form-group"><label class="form-label">Deadline</label><input class="form-input" type="date" id="edDeadline" value="${ev.registrationDeadline.split('T')[0]}"/></div>
+          <div class="form-group g2-full"><label class="form-label">Guests (Comma separated)</label><textarea class="form-input" id="edGuests" rows="2">${(ev.guests || []).join(', ')}</textarea></div>
+          <div class="form-group"><label class="form-label">Fee (₹)</label><input class="form-input" type="number" id="edFee" value="${ev.participationFee}"/></div>
+          <div class="form-group"><label class="form-label">Max Capacity</label><input class="form-input" type="number" id="edMax" value="${ev.maxParticipants || 100}"/></div>
+          <div class="form-group"><label class="form-label">Coordinator Name</label><input class="form-input" id="edCoordName" value="${ev.coordinatorName || ''}"/></div>
+          <div class="form-group"><label class="form-label">Coordinator Contact</label><input class="form-input" id="edCoordPhone" value="${ev.coordinatorPhone || ''}"/></div>
+          <div class="form-group g2-full"><button class="btn btn-lg btn-primary" id="saveEditBtn" onclick="saveEditEvent('${ev._id}')">Save Changes</button> <button class="btn btn-lg btn-ghost" onclick="go('events')">Cancel</button></div>
+        </div>
+      </div>`;
+  }
+
+  window.saveEditEvent = async function(id) {
+    const title = document.getElementById('edTitle').value.trim();
+    const description = document.getElementById('edDesc').value.trim();
+    const venue = document.getElementById('edVenue').value.trim();
+    const date = document.getElementById('edDate').value;
+    const time = document.getElementById('edTime').value;
+    const registrationDeadline = document.getElementById('edDeadline').value;
+    const participationFee = +document.getElementById('edFee').value;
+    const maxParticipants = +document.getElementById('edMax').value;
+    const guests = document.getElementById('edGuests').value.trim();
+    const coordinatorName = document.getElementById('edCoordName').value.trim();
+    const coordinatorPhone = document.getElementById('edCoordPhone').value.trim();
+
+    const btn = document.getElementById('saveEditBtn');
+    btn.disabled = true; btn.textContent = 'Updating...';
+
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('description', description);
+    formData.append('venue', venue);
+    formData.append('date', date);
+    formData.append('time', time);
+    formData.append('registrationDeadline', registrationDeadline);
+    formData.append('participationFee', participationFee);
+    formData.append('maxParticipants', maxParticipants);
+    formData.append('guests', guests);
+    formData.append('coordinatorName', coordinatorName);
+    formData.append('coordinatorPhone', coordinatorPhone);
+
+    try {
+      await API.updateEvent(id, formData);
+      toast('Event updated successfully!', 'success');
+      await loadClubData(); go('events');
+    } catch (err) { toast(err.message, 'error'); btn.disabled = false; btn.textContent = 'Save Changes'; }
+  }
+
+  window.exportClubCSV = function() {
+    const allPars = myEvents.flatMap(ev=>(ev.registeredStudents||[]).map(s=>({
+      ...s,
+      eventTitle:ev.title
+    })));
+    if(!allPars.length) return toast('No registrations to export','error');
+    
+    const csvRows = allPars.map(p => `"${p.rollNo||'N/A'}","${p.name||''}","${p.eventTitle}","${p.department||'N/A'}","${p.phone||'N/A'}","${p.email||''}"`);
+    const csv = "RollNo,Name,Event,Department,Phone,Email\n" + csvRows.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'campusconnect_registrations.csv';
+    a.click();
+    toast('List downloaded!', 'success');
+  }
+
+  async function init() {
+    await loadClubData();
+    buildSidebar();
+    go('overview');
+  }
+
+  init();
+</script>
+</body>
+</html>

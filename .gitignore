@@ -1,0 +1,7 @@
+clause_campusconnect-backend/
+node_modules/
+.DS_Store
+.env
+.idea/
+.vscode/
+temp/
