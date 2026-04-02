@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /pages/admin.html
+Disallow: /pages/club-dashboard.html
+Disallow: /pages/dashboard.html
+
+Sitemap: https://campusconnect-mycollege.netlify.app/sitemap.xml
