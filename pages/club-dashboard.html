@@ -292,11 +292,11 @@
           ${pending.map(p => renderParticipantRow(p)).join('')}
           ${!pending.length?'<p style="color:var(--tx2);padding:1rem">All registered students have been checked in!</p>':''}
         </div>
-      </div>\`;
+      </div>`;
     } catch (err) {
-      document.getElementById('dashMain').innerHTML = \`
+      document.getElementById('dashMain').innerHTML = `
         <div class="dash-header"><h1>Participants</h1></div>
-        <div class="section-box"><p style="color:var(--rd)">Failed to load participants: \${err.message}</p></div>\`;
+        <div class="section-box"><p style="color:var(--rd)">Failed to load participants: ${err.message}</p></div>`;
     }
   }
 
