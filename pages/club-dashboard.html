@@ -254,6 +254,10 @@
         didAttend: (ev.attendedStudents||[]).includes(s._id)
       };
     }));
+
+    const attended = allPars.filter(p => p.didAttend);
+    const pending = allPars.filter(p => !p.didAttend);
+
     document.getElementById('dashMain').innerHTML = `
       <div class="dash-header" style="display:flex;justify-content:space-between;align-items:flex-end">
         <div><h1>Participants</h1><p>${allPars.length} total registrations across your events</p></div>
@@ -262,19 +266,48 @@
           <button class="btn btn-sm btn-success" onclick="exportClubCSV()">⬇️ Export CSV</button>
         </div>
       </div>
-      <div class="section-box">
-        ${allPars.map(p=>`<div class="par-row">
-          <div class="avatar av-md">${(p.name||'?')[0].toUpperCase()}</div>
-          <div style="flex:1">
-            <div style="font-size:.88rem;font-weight:600">${p.name||'Student'} <span style="font-weight:400;color:var(--tx2);margin-left:.3rem">(${p.rollNo||'No Roll No'})</span></div>
-            <div style="font-size:.74rem;color:var(--tx2)">${p.email||''} · ${p.department||'Unknown Dept'}</div>
-            ${p.proofURL ? `<a href="${p.proofURL}" target="_blank" style="font-size:.7rem;color:var(--v);text-decoration:none;font-weight:600;margin-top:.3rem;display:inline-block">🖼️ View Payment Screenshot</a>` : ''}
-          </div>
-          <div style="text-align:right"><div style="font-size:.8rem;font-weight:500">${p.eventTitle}</div></div>
-          <span class="tag ${p.didAttend ? 'tag-gn' : 'tag-am'}" style="margin-left:1rem">${p.didAttend ? '✅ Attended' : '⏳ Registered'}</span>
-        </div>`).join('')}
-        ${!allPars.length?'<p style="color:var(--tx2)">No registrations yet.</p>':''}
+
+      <!-- Section 1: Checked-in Students -->
+      <div style="margin-bottom:2rem">
+        <div style="display:flex;align-items:center;gap:.7rem;margin-bottom:1rem;padding-left:.5rem">
+          <div style="font-size:1.3rem">✅</div>
+          <h3 style="margin:0;font-size:1.05rem">Checked-in Students</h3>
+          <span class="tag tag-gn" style="font-size:.7rem">${attended.length} present</span>
+        </div>
+        <div class="section-box" style="margin-top:0">
+          ${attended.map(p => renderParticipantRow(p)).join('')}
+          ${!attended.length?'<p style="color:var(--tx2);padding:1rem">No students scanned yet.</p>':''}
+        </div>
+      </div>
+
+      <!-- Section 2: Awaiting Check-in -->
+      <div>
+        <div style="display:flex;align-items:center;gap:.7rem;margin-bottom:1rem;padding-left:.5rem">
+          <div style="font-size:1.3rem">🎟️</div>
+          <h3 style="margin:0;font-size:1.05rem">Awaiting Check-in</h3>
+          <span class="tag tag-am" style="font-size:.7rem">${pending.length} pending</span>
+        </div>
+        <div class="section-box" style="margin-top:0">
+          ${pending.map(p => renderParticipantRow(p)).join('')}
+          ${!pending.length?'<p style="color:var(--tx2);padding:1rem">All registered students have been checked in!</p>':''}
+        </div>
       </div>`;
+  }
+
+  // Helper function to keep row HTML consistent
+  function renderParticipantRow(p) {
+    return `<div class="par-row">
+      <div class="avatar av-md">${(p.name||'?')[0].toUpperCase()}</div>
+      <div style="flex:1">
+        <div style="font-size:.88rem;font-weight:600">${p.name||'Student'} <span style="font-weight:400;color:var(--tx2);margin-left:.3rem">(${p.rollNo||'No Roll No'})</span></div>
+        <div style="font-size:.74rem;color:var(--tx2)">${p.email||''} · ${p.department||'Unknown Dept'}</div>
+        ${p.proofURL ? `<a href="${p.proofURL}" target="_blank" style="font-size:.7rem;color:var(--v);text-decoration:none;font-weight:600;margin-top:.3rem;display:inline-block">🖼️ View Payment Screenshot</a>` : ''}
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:.8rem;font-weight:500">${p.eventTitle}</div>
+        <span class="tag ${p.didAttend ? 'tag-gn' : 'tag-am'}" style="margin-top:.4rem;display:inline-flex">${p.didAttend ? '✅ Attended' : '⏳ Registered'}</span>
+      </div>
+    </div>`;
   }
 
   function renderScanner() {
