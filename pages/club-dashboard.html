@@ -83,17 +83,27 @@
     if (html5QrcodeScanner) { try { await html5QrcodeScanner.clear(); } catch(e){} html5QrcodeScanner=null; }
     buildSidebar();
     const el = document.getElementById('dashMain');
-    loading(el);
     
-    // Always fetch fresh data to ensure approval status is up-to-date
+    // 🚀 INSTANT RENDERING: Show the page immediately with cached/local data
+    if (p==='overview') renderOverview();
+    else if (p==='events') renderMyEvents();
+    else if (p==='create') renderCreateForm();
+    else if (p==='participants') renderParticipants();
+    else if (p==='scan') renderScanner();
+    else if (p==='club') renderClubProfile();
+    else loading(el); // Fallback for transition
+
+    // 🔄 BACKGROUND REFRESH: Fetch updates silently
     await loadClubData();
     
-    if (p==='overview') renderOverview();
-    if (p==='events') renderMyEvents();
-    if (p==='create') renderCreateForm();
-    if (p==='participants') renderParticipants();
-    if (p==='scan') renderScanner();
-    if (p==='club') renderClubProfile();
+    // ⚡ RE-RENDERING: Update with fresh data if we're still on the same page
+    if (page===p) {
+      if (p==='overview') renderOverview();
+      if (p==='events') renderMyEvents();
+      if (p==='participants') renderParticipants();
+      if (p==='club') renderClubProfile();
+      // Note: We don't re-render 'create' or 'scan' to avoid interrupting user input/camera
+    }
   }
 
   function renderOverview() {
@@ -571,7 +581,14 @@
     }
   }
 
-  go('overview');
+  // ⚡ Init: Start instantly, fetch data in background
+  (async () => {
+    buildSidebar();
+    go('overview');
+    await loadClubData();
+    buildSidebar();
+    go('overview'); 
+  })();
 </script>
 </body>
 </html>
