@@ -52,6 +52,9 @@ async function api(method, path, body = null, auth = false) {
 // ── ENDPOINT MAPPINGS ─────────────────────────────────────
 // All available backend connections in one object
 const API = {
+  // Generic caller for direct path access
+  api: api,
+
   // Account Management
   register: (d) => api('POST', '/auth/register', d),
   login: (d) => api('POST', '/auth/login', d),
