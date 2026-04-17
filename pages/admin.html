@@ -242,8 +242,7 @@
             `).join('')}
           </table>
         </div>
-      </div>
-    `;
+      </div>`;
     document.body.appendChild(overlay);
   };
 
@@ -266,7 +265,6 @@
     const clubEvents = allAdminEvents.filter(e => e.clubId?._id === clubId);
     if (!clubEvents.length) return toast('This club has no events yet', 'info');
     
-    // Aggregate unique participants (by email) across all events of this club
     const participants = new Map();
     let clubName = 'Club';
     
@@ -292,13 +290,12 @@
     const a = document.createElement('a');
     a.href = url; a.download = `${clubName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_all_students.csv`;
     a.click();
+  };
+
   window.exportAllByClub = function() {
     const uniqueClubIds = [...new Set(allAdminEvents.map(e => e.clubId?._id).filter(id => !!id))];
     if (!uniqueClubIds.length) return toast('No event registrations found to export', 'info');
-    
     toast(`Preparing ${uniqueClubIds.length} separate CSV files...`, 'success');
-    
-    // Stagger downloads to prevent browser from blocking multiple popups
     uniqueClubIds.forEach((id, index) => {
       setTimeout(() => exportClubCSV(id), index * 1000);
     });

@@ -75,13 +75,11 @@
   let html5QrcodeScanner = null;
 
   async function go(p) {
-    // If navigating away from scanner, stop the camera
     if (page === 'scan' && html5QrcodeScanner) {
       try { html5QrcodeScanner.clear(); html5QrcodeScanner = null; } catch(e){}
     }
     
     page=p; 
-    // Always refresh data when switching tabs to ensure UI is up to date
     if (['overview', 'events', 'participants', 'club'].includes(p)) {
       await loadClubData();
     }
@@ -263,23 +261,22 @@
           <div style="flex:1">
             <div style="font-size:.88rem;font-weight:600">${p.name||'Student'} <span style="font-weight:400;color:var(--tx2);margin-left:.3rem">(${p.rollNo||'No Roll No'})</span></div>
             <div style="font-size:.74rem;color:var(--tx2)">${p.email||''} · ${p.department||'Unknown Dept'}</div>
-            ${p.proofURL ? `<a href="${p.proofURL}" target="_blank" style="font-size:.7rem;color:var(--v);text-decoration:none;font-weight:600;margin-top:.3rem;display:inline-block">🖼️ View Payment Screenshot</a>` : ''}
+            ${p.proofURL ? \`<a href="\${p.proofURL}" target="_blank" style="font-size:.7rem;color:var(--v);text-decoration:none;font-weight:600;margin-top:.3rem;display:inline-block">🖼️ View Payment Screenshot</a>\` : ''}
           </div>
-          <div style="text-align:right"><div style="font-size:.8rem;font-weight:500">${p.eventTitle}</div></div>
-          <span class="tag ${p.didAttend ? 'tag-gn' : 'tag-am'}" style="margin-left:1rem">${p.didAttend ? '✅ Attended' : '⏳ Registered'}</span>
-        </div>`).join('')}
+          <div style="text-align:right"><div style="font-size:.8rem;font-weight:500">\${p.eventTitle}</div></div>
+          <span class="tag \${p.didAttend ? 'tag-gn' : 'tag-am'}" style="margin-left:1rem">\${p.didAttend ? '✅ Attended' : '⏳ Registered'}</span>
+        </div>\`).join('')}
         ${!allPars.length?'<p style="color:var(--tx2)">No registrations yet.</p>':''}
-      </div>`;
+      </div>\`;
   }
 
   function renderScanner() {
-    document.getElementById('dashMain').innerHTML = `
+    document.getElementById('dashMain').innerHTML = \`
       <div class="dash-header"><h1>Scan Tickets 📷</h1><p>Hold the student's QR code up to the camera to instantly check them in.</p></div>
       <div class="section-box" style="text-align:center">
         <div id="reader" style="width:100%;max-width:500px;margin:1rem auto;border-radius:12px;overflow:hidden;border:1px solid var(--b2);background:#fff"></div>
-      </div>`;
+      </div>\`;
     
-    // Slight delay to ensure DOM is ready before injecting scanner
     setTimeout(() => {
       html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, false);
       html5QrcodeScanner.render(onScanSuccess, onScanFailure);
@@ -288,17 +285,14 @@
 
   window.isScanning = false;
   async function onScanSuccess(decodedText, decodedResult) {
-    if (window.isScanning) return; // Debounce
+    if (window.isScanning) return;
     window.isScanning = true;
     try {
       const payload = JSON.parse(decodedText);
       if (!payload.eventId || !payload.studentId) throw new Error("Invalid Format");
-      
-      if (html5QrcodeScanner) html5QrcodeScanner.pause(true); // Pause scanning
-      
+      if (html5QrcodeScanner) html5QrcodeScanner.pause(true);
       const res = await api('POST', '/events/' + payload.eventId + '/attendance', { studentId: payload.studentId }, true);
       toast(res.message || '✅ Student Checked In!', 'success');
-      
       setTimeout(() => { if (html5QrcodeScanner) html5QrcodeScanner.resume(); window.isScanning = false; }, 3000);
     } catch (err) {
       toast(err.message || 'Error processing ticket! Invalid QR?', 'error');
@@ -306,9 +300,7 @@
     }
   }
 
-  function onScanFailure(error) {
-    // Ignore routine frame read failures
-  }
+  function onScanFailure(error) {}
 
   window.exportClubCSV = function() {
     const allPars = myEvents.flatMap(ev=>(ev.registeredStudents||[]).map(s=>({
@@ -316,7 +308,7 @@
     })));
     if (!allPars.length) return toast('No data to export', 'error');
     const csvRows = allPars.map(p => '"' + p.eventTitle + '","' + (p.rollNo||'N/A') + '","' + (p.name||'') + '","' + (p.department||'N/A') + '","' + (p.email||'') + '","' + (p.didAttend?'Attended':'Registered') + '"');
-    const csv = "Event,RollNo,Name,Department,Email,Status\\n" + csvRows.join('\\n');
+    const csv = "Event,RollNo,Name,Department,Email,Status\n" + csvRows.join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -327,46 +319,47 @@
   async function renderClubProfile() {
     const el=document.getElementById('dashMain');
     if (!myClub) {
-      el.innerHTML=`<div class="dash-header"><h1>Club Profile</h1></div>
-        <div class="section-box">
-          <p style="color:var(--tx2);margin-bottom:1.5rem">Register your club to get started.</p>
-          <div class="g2">
-            <div class="form-group g2-full"><label class="form-label">Club Name *</label><input class="form-input" id="cName" placeholder="e.g. Coding Club"/></div>
-            <div class="form-group g2-full"><label class="form-label">Description *</label><textarea class="form-input" id="cDesc" rows="3"></textarea></div>
-            <div class="form-group"><label class="form-label">Category *</label>
-              <select class="form-select" id="cCat"><option value="">Select…</option><option>Technical</option><option>Cultural</option><option>Sports</option><option>Hackathons</option><option>Entrepreneurship</option><option>Arts</option></select>
-            </div>
-            <div class="form-group"><label class="form-label">Contact Email *</label><input class="form-input" id="cEmail" placeholder="e.g. club@college.edu"/></div>
-            <div class="form-group"><label class="form-label">Contact Phone *</label><input class="form-input" id="cPhone" placeholder="e.g. 9876543210"/></div>
-            <div class="form-group g2-full"><button class="btn btn-lg btn-primary" id="cBtn" onclick="createClub()">Register Club</button></div>
+      el.innerHTML=\`
+      <div class="dash-header"><h1>Club Profile</h1></div>
+      <div class="section-box">
+        <p style="color:var(--tx2);margin-bottom:1.5rem">Register your club to get started.</p>
+        <div class="g2">
+          <div class="form-group g2-full"><label class="form-label">Club Name *</label><input class="form-input" id="cName" placeholder="e.g. Coding Club"/></div>
+          <div class="form-group g2-full"><label class="form-label">Description *</label><textarea class="form-input" id="cDesc" rows="3"></textarea></div>
+          <div class="form-group"><label class="form-label">Category *</label>
+            <select class="form-select" id="cCat"><option value="">Select…</option><option>Technical</option><option>Cultural</option><option>Sports</option><option>Hackathons</option><option>Entrepreneurship</option><option>Arts</option></select>
           </div>
-        </div>`;
+          <div class="form-group"><label class="form-label">Contact Email *</label><input class="form-input" id="cEmail" placeholder="e.g. club@college.edu"/></div>
+          <div class="form-group"><label class="form-label">Contact Phone *</label><input class="form-input" id="cPhone" placeholder="e.g. 9876543210"/></div>
+          <div class="form-group g2-full"><button class="btn btn-lg btn-primary" id="cBtn" onclick="createClub()">Register Club</button></div>
+        </div>
+      </div>\`;
       return;
     }
-    el.innerHTML=`
+    el.innerHTML=\`
       <div class="dash-header"><h1>Club Profile</h1></div>
       <div class="section-box">
         <div style="display:flex;align-items:center;gap:1.4rem;padding-bottom:1.8rem;margin-bottom:1.8rem;border-bottom:1px solid var(--b1)">
           <div style="width:68px;height:68px;border-radius:18px;background:rgba(124,107,255,.15);display:flex;align-items:center;justify-content:center;font-size:2rem">🏢</div>
-          <div><h2 style="font-family:'Syne',sans-serif;font-size:1.25rem;font-weight:800">${myClub.clubName}</h2><p style="color:var(--tx2)">${myClub.category}</p>
-          <span class="tag ${myClub.isApproved?'tag-gn':'tag-am'}" style="margin-top:.4rem;display:inline-flex">${myClub.isApproved?'✅ Approved':'⏳ Pending Approval'}</span></div>
+          <div><h2 style="font-family:'Syne',sans-serif;font-size:1.25rem;font-weight:800">\${myClub.clubName}</h2><p style="color:var(--tx2)">\${myClub.category}</p>
+          <span class="tag \${myClub.isApproved?'tag-gn':'tag-am'}" style="margin-top:.4rem;display:inline-flex">\${myClub.isApproved?'✅ Approved':'⏳ Pending Approval'}</span></div>
         </div>
         <div class="g2">
-          <div class="form-group g2-full"><label class="form-label">Club Name</label><input class="form-input" id="upName" value="${myClub.clubName}"/></div>
-          <div class="form-group g2-full"><label class="form-label">Description</label><textarea class="form-input" id="upDesc" rows="3">${myClub.description}</textarea></div>
-          <div class="form-group"><label class="form-label">Contact Email</label><input class="form-input" id="upEmail" value="${myClub.contactEmail||''}" placeholder="club@college.edu"/></div>
-          <div class="form-group"><label class="form-label">Contact Phone</label><input class="form-input" id="upPhone" value="${myClub.contactPhone||''}" placeholder="9876543210"/></div>
-          <div class="form-group"><label class="form-label">Instagram</label><input class="form-input" id="upIG" value="${myClub.socialLinks?.instagram||''}" placeholder="@yourclub"/></div>
-          <div class="form-group"><label class="form-label">Website</label><input class="form-input" id="upWeb" value="${myClub.socialLinks?.website||''}" placeholder="https://…"/></div>
+          <div class="form-group g2-full"><label class="form-label">Club Name</label><input class="form-input" id="upName" value="\${myClub.clubName}"/></div>
+          <div class="form-group g2-full"><label class="form-label">Description</label><textarea class="form-input" id="upDesc" rows="3">\${myClub.description}</textarea></div>
+          <div class="form-group"><label class="form-label">Contact Email</label><input class="form-input" id="upEmail" value="\${myClub.contactEmail||''}" placeholder="club@college.edu"/></div>
+          <div class="form-group"><label class="form-label">Contact Phone</label><input class="form-input" id="upPhone" value="\${myClub.contactPhone||''}" placeholder="9876543210"/></div>
+          <div class="form-group"><label class="form-label">Instagram</label><input class="form-input" id="upIG" value="\${myClub.socialLinks?.instagram||''}" placeholder="@yourclub"/></div>
+          <div class="form-group"><label class="form-label">Website</label><input class="form-input" id="upWeb" value="\${myClub.socialLinks?.website||''}" placeholder="https://…"/></div>
           
           <div class="form-group g2-full"><label class="form-label">Gallery Images (Comma separated URLs)</label>
-            <textarea class="form-input" id="upGallery" rows="2" placeholder="https://img1.jpg, https://img2.jpg">${(myClub.gallery || []).join(', ')}</textarea>
+            <textarea class="form-input" id="upGallery" rows="2" placeholder="https://img1.jpg, https://img2.jpg">\${(myClub.gallery || []).join(', ')}</textarea>
             <p style="font-size:0.75rem;color:var(--tx2);margin-top:0.3rem">Add links to your past event photos. Comma separated.</p>
           </div>
 
           <div class="form-group g2-full"><button class="btn btn-md btn-primary" onclick="updateClub()">Save Changes</button></div>
         </div>
-      </div>`;
+      </div>\`;
   }
 
   async function createClub() {
@@ -412,22 +405,22 @@
   window.renderEditForm = function(id) {
     const ev = myEvents.find(e => e._id === id);
     if (!ev) return;
-    document.getElementById('dashMain').innerHTML = `
-      <div class="dash-header"><h1>Edit Event</h1><p>Updating: ${ev.title}</p></div>
+    document.getElementById('dashMain').innerHTML = \`
+      <div class="dash-header"><h1>Edit Event</h1><p>Updating: \${ev.title}</p></div>
       <div class="section-box">
         <div class="g2">
-          <div class="form-group g2-full"><label class="form-label">Event Title</label><input class="form-input" id="edTitle" value="${ev.title}"/></div>
-          <div class="form-group g2-full"><label class="form-label">Description</label><textarea class="form-input" id="edDesc" rows="3">${ev.description}</textarea></div>
-          <div class="form-group"><label class="form-label">Venue</label><input class="form-input" id="edVenue" value="${ev.venue}"/></div>
-          <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="edDate" value="${ev.date.split('T')[0]}"/></div>
-          <div class="form-group"><label class="form-label">Time</label><input class="form-input" type="time" id="edTime" value="${ev.time}"/></div>
-          <div class="form-group"><label class="form-label">Deadline</label><input class="form-input" type="date" id="edDeadline" value="${ev.registrationDeadline.split('T')[0]}"/></div>
-          <div class="form-group g2-full"><label class="form-label">Guests (Comma separated)</label><textarea class="form-input" id="edGuests" rows="2">${(ev.guests || []).join(', ')}</textarea></div>
+          <div class="form-group g2-full"><label class="form-label">Event Title</label><input class="form-input" id="edTitle" value="\${ev.title}"/></div>
+          <div class="form-group g2-full"><label class="form-label">Description</label><textarea class="form-input" id="edDesc" rows="3">\${ev.description}</textarea></div>
+          <div class="form-group"><label class="form-label">Venue</label><input class="form-input" id="edVenue" value="\${ev.venue}"/></div>
+          <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="edDate" value="\${ev.date.split('T')[0]}"/></div>
+          <div class="form-group"><label class="form-label">Time</label><input class="form-input" type="time" id="edTime" value="\${ev.time}"/></div>
+          <div class="form-group"><label class="form-label">Deadline</label><input class="form-input" type="date" id="edDeadline" value="\${ev.registrationDeadline.split('T')[0]}"/></div>
+          <div class="form-group g2-full"><label class="form-label">Guests (Comma separated)</label><textarea class="form-input" id="edGuests" rows="2">\${(ev.guests || []).join(', ')}</textarea></div>
           <div class="form-group g2-full">
             <label class="form-label">Event Poster</label>
             <div style="display:flex;gap:1.5rem;align-items:flex-start">
               <div id="editPosterPreview" style="width:120px;height:160px;background:var(--s1);border:1px dashed var(--b2);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden">
-                ${ev.posterURL ? `<img src="${ev.posterURL}" style="width:100%;height:100%;object-fit:cover"/>` : '<span style="font-size:.7rem;color:var(--tx2)">No Image</span>'}
+                \${ev.posterURL ? \`<img src="\${ev.posterURL}" style="width:100%;height:100%;object-fit:cover"/>\` : '<span style="font-size:.7rem;color:var(--tx2)">No Image</span>'}
               </div>
               <div style="flex:1">
                 <input type="file" id="edPoster" accept="image/*" style="display:none" onchange="previewImg(this, 'editPosterPreview')"/>
@@ -436,13 +429,13 @@
               </div>
             </div>
           </div>
-          <div class="form-group"><label class="form-label">Fee (₹)</label><input class="form-input" type="number" id="edFee" value="${ev.participationFee}"/></div>
-          <div class="form-group"><label class="form-label">Max Capacity</label><input class="form-input" type="number" id="edMax" value="${ev.maxParticipants || 100}"/></div>
-          <div class="form-group"><label class="form-label">Coordinator Name</label><input class="form-input" id="edCoordName" value="${ev.coordinatorName || ''}"/></div>
-          <div class="form-group"><label class="form-label">Coordinator Contact</label><input class="form-input" id="edCoordPhone" value="${ev.coordinatorPhone || ''}"/></div>
-          <div class="form-group g2-full"><button class="btn btn-lg btn-primary" id="saveEditBtn" onclick="saveEditEvent('${ev._id}')">Save Changes</button> <button class="btn btn-lg btn-ghost" onclick="go('events')">Cancel</button></div>
+          <div class="form-group"><label class="form-label">Fee (₹)</label><input class="form-input" type="number" id="edFee" value="\${ev.participationFee}"/></div>
+          <div class="form-group"><label class="form-label">Max Capacity</label><input class="form-input" type="number" id="edMax" value="\${ev.maxParticipants || 100}"/></div>
+          <div class="form-group"><label class="form-label">Coordinator Name</label><input class="form-input" id="edCoordName" value="\${ev.coordinatorName || ''}"/></div>
+          <div class="form-group"><label class="form-label">Coordinator Contact</label><input class="form-input" id="edCoordPhone" value="\${ev.coordinatorPhone || ''}"/></div>
+          <div class="form-group g2-full"><button class="btn btn-lg btn-primary" id="saveEditBtn" onclick="saveEditEvent('\${ev._id}')">Save Changes</button> <button class="btn btn-lg btn-ghost" onclick="go('events')">Cancel</button></div>
         </div>
-      </div>`;
+      </div>\`;
   }
 
   window.saveEditEvent = async function(id) {
@@ -483,30 +476,13 @@
     } catch (err) { toast(err.message, 'error'); btn.disabled = false; btn.textContent = 'Save Changes'; }
   }
 
-  window.exportClubCSV = function() {
-    const allPars = myEvents.flatMap(ev=>(ev.registeredStudents||[]).map(s=>({
-      ...s,
-      eventTitle:ev.title
-    })));
-    if(!allPars.length) return toast('No registrations to export','error');
-    
-    const csvRows = allPars.map(p => `"${p.rollNo||'N/A'}","${p.name||''}","${p.eventTitle}","${p.department||'N/A'}","${p.phone||'N/A'}","${p.email||''}"`);
-    const csv = "RollNo,Name,Event,Department,Phone,Email\n" + csvRows.join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'campusconnect_registrations.csv';
-    a.click();
-    toast('List downloaded!', 'success');
-  }
-
   window.previewImg = function(input, targetId, textId) {
     const file = input.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = function(e) {
       const target = document.getElementById(targetId);
-      target.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover"/>`;
+      target.innerHTML = \`<img src="\${e.target.result}" style="width:100%;height:100%;object-fit:cover"/>\`;
       if (textId) {
         const txt = document.getElementById(textId);
         if (txt) txt.style.display = 'none';
