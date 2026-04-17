@@ -245,7 +245,7 @@
   }
 
   function getLiveAttendanceHTML() {
-    const allPars = myEvents.flatMap(ev=>(ev.registeredStudents||[]).filter(Boolean).map(s=>{
+    const allPars = (myEvents||[]).filter(Boolean).flatMap(ev=>(ev.registeredStudents||[]).filter(Boolean).map(s=>{
       const proof = (ev.paymentProofs || []).find(p => p.studentId === s._id || p.studentId?._id === s._id);
       return {
         ...s,
@@ -288,7 +288,7 @@
 
   function renderParticipants() {
     try {
-      const allParsCount = myEvents.reduce((acc, ev) => acc + (ev.registeredStudents?.length || 0), 0);
+      const allParsCount = (myEvents||[]).filter(Boolean).reduce((acc, ev) => acc + (ev.registeredStudents?.length || 0), 0);
       document.getElementById('dashMain').innerHTML = `
         <div class="dash-header" style="display:flex;justify-content:space-between;align-items:flex-end">
           <div><h1>Participants</h1><p>${allParsCount} total registrations across your events</p></div>
