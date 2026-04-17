@@ -5,13 +5,13 @@
   <title>Club Dashboard — CampusConnect</title>
   <link rel="stylesheet" href="../css/style.css"/>
   <style>
-    .ev-row{background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:.9rem 1.1rem;display:flex;align-items:center;gap:.9rem;margin-bottom:.6rem}
-    .ev-ico{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;background:rgba(124,107,255,.15)}
-    .par-row{display:flex;align-items:center;gap:.8rem;padding:.7rem 0;border-bottom:1px solid var(--b1)}
-    .par-row:last-child{border-bottom:none}
-    .g2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
-    .g2-full{grid-column:1/-1}
-    @media(max-width:640px){ .g2{grid-template-columns:1fr} }
+    .ev-row, .par-row{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:1.1rem;display:flex;align-items:center;gap:.9rem;margin-bottom:.8rem;transition:all .2s;cursor:pointer}
+    .ev-row:hover, .par-row:hover{border-color:var(--v);transform:translateY(-2px)}
+    .ev-ico{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;background:rgba(124,107,255,0.15);color:var(--v)}
+    /* Scanner UI Fixes */
+    #reader { border: none !important; }
+    #reader__status_span { font-size: 0.8rem; color: var(--tx2); }
+    #reader__scan_region video { border-radius: 12px; }
   </style>
 </head>
 <body>
@@ -24,25 +24,35 @@
     </div>
   </div>
 </div>
+
 <footer id="mainFooter"></footer>
-<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<script src="https://unpkg.com/html5-qrcode"></script>
 <script src="../js/app.js"></script>
 <script>
   buildNav('');
   if (!Auth.isLoggedIn) { window.location.href='login.html'; }
   const user = Auth.user;
-  if (user?.role==='student') window.location.href='dashboard.html';
+  if (user?.role!=='clubAdmin') { window.location.href='dashboard.html'; }
 
   let page = 'overview';
   let myClub = null;
   let myEvents = [];
+  let html5QrcodeScanner = null;
+
+  async function loadClubData() {
+    try {
+      const data = await API.getMyClub();
+      myClub = data.club;
+      myEvents = data.events || [];
+    } catch (err) { console.error('Club error:', err); }
+  }
 
   function buildSidebar() {
-    const links=[
-      {k:'overview',i:'🏠',l:'Overview'},
+    const links = [
+      {k:'overview',i:'🏠',l:'Dashboard Home'},
       {k:'events',i:'📅',l:'My Events'},
-      {k:'create',i:'➕',l:'Post New Event'},
-      {k:'participants',i:'👥',l:'Participants'},
+      {k:'create',i:'🚀',l:'Post New Event'},
+      {k:'participants',i:'👥',l:'Participants List'},
       {k:'scan',i:'📷',l:'Scan Tickets'},
       {k:'club',i:'🏢',l:'Club Profile'},
     ];
@@ -50,8 +60,8 @@
       <div class="sidebar-profile">
         <div class="avatar av-lg">${user.name[0].toUpperCase()}</div>
         <h3 style="margin-top:.6rem">${user.name}</h3>
-        <p style="font-size:.72rem;color:var(--tx2)">${myClub?.clubName||'Club Admin'}</p>
-        <div style="margin-top:.4rem"><span class="tag tag-pk">🏢 Club Admin</span></div>
+        <p>${myClub?.clubName || 'Admin'}</p>
+        <div style="margin-top:.4rem"><span class="tag tag-v">🛡️ Club Admin</span></div>
       </div>
       <nav class="sidebar-nav">
         ${links.map(l=>`<button class="s-link${l.k===page?' active':''}" onclick="go('${l.k}')"><span class="ico">${l.i}</span>${l.l}</button>`).join('')}
@@ -59,43 +69,24 @@
       </nav>`;
   }
 
-  async function loadClubData() {
-    try {
-      const data = await API.getMyClub();
-      myClub = data;
-      myEvents = data.events || [];
-      console.log('Club data loaded:', myClub);
-    } catch (err) { 
-      console.warn('No club found for this user yet.');
-      myClub = null; 
-      myEvents = []; 
-    }
-  }
-
-  let html5QrcodeScanner = null;
-
   async function go(p) {
-    if (page === 'scan' && html5QrcodeScanner) {
-      try { html5QrcodeScanner.clear(); html5QrcodeScanner = null; } catch(e){}
-    }
-    
     page=p; 
-    if (['overview', 'events', 'participants', 'club'].includes(p)) {
-      await loadClubData();
-    }
+    if (html5QrcodeScanner) { try { await html5QrcodeScanner.clear(); } catch(e){} html5QrcodeScanner=null; }
     buildSidebar();
-    const el=document.getElementById('dashMain');
+    const el = document.getElementById('dashMain');
     loading(el);
-    if (p==='overview')    await renderOverview();
-    if (p==='events')      renderMyEvents();
-    if (p==='create')      renderCreateForm();
-    if (p==='participants')renderParticipants();
-    if (p==='scan')        renderScanner();
-    if (p==='club')        renderClubProfile();
+    if (!myClub && p!=='club') { await loadClubData(); }
+    
+    if (p==='overview') renderOverview();
+    if (p==='events') renderMyEvents();
+    if (p==='create') renderCreateForm();
+    if (p==='participants') renderParticipants();
+    if (p==='scan') renderScanner();
+    if (p==='club') renderClubProfile();
   }
 
-  async function renderOverview() {
-    const el=document.getElementById('dashMain');
+  function renderOverview() {
+    const el = document.getElementById('dashMain');
     if (!myClub) {
       el.innerHTML=`<div class="dash-header"><h1>Club Dashboard 🏢</h1></div>
         <div class="section-box" style="text-align:center;padding:3rem">
@@ -210,7 +201,7 @@
     const coordinatorPhone=document.getElementById('eCoordPhone').value.trim();
     const posterFile = document.getElementById('ePoster').files[0];
 
-    if (!title||!description||!category||!venue||!date||!time||!registrationDeadline||!coordinatorName||!coordinatorPhone) { toast('Fill all required fields including coordinator info','error'); return; }
+    if (!title||!description||!category||!venue||!date||!time||!registrationDeadline||!coordinatorName||!coordinatorPhone) { toast('Fill all required fields','error'); return; }
     if (!posterFile) { toast('Please upload an event poster','error'); return; }
     
     const btn=document.getElementById('postBtn'); btn.textContent='Posting…'; btn.disabled=true;
@@ -261,21 +252,21 @@
           <div style="flex:1">
             <div style="font-size:.88rem;font-weight:600">${p.name||'Student'} <span style="font-weight:400;color:var(--tx2);margin-left:.3rem">(${p.rollNo||'No Roll No'})</span></div>
             <div style="font-size:.74rem;color:var(--tx2)">${p.email||''} · ${p.department||'Unknown Dept'}</div>
-            ${p.proofURL ? \`<a href="\${p.proofURL}" target="_blank" style="font-size:.7rem;color:var(--v);text-decoration:none;font-weight:600;margin-top:.3rem;display:inline-block">🖼️ View Payment Screenshot</a>\` : ''}
+            ${p.proofURL ? `<a href="${p.proofURL}" target="_blank" style="font-size:.7rem;color:var(--v);text-decoration:none;font-weight:600;margin-top:.3rem;display:inline-block">🖼️ View Payment Screenshot</a>` : ''}
           </div>
-          <div style="text-align:right"><div style="font-size:.8rem;font-weight:500">\${p.eventTitle}</div></div>
-          <span class="tag \${p.didAttend ? 'tag-gn' : 'tag-am'}" style="margin-left:1rem">\${p.didAttend ? '✅ Attended' : '⏳ Registered'}</span>
-        </div>\`).join('')}
+          <div style="text-align:right"><div style="font-size:.8rem;font-weight:500">${p.eventTitle}</div></div>
+          <span class="tag ${p.didAttend ? 'tag-gn' : 'tag-am'}" style="margin-left:1rem">${p.didAttend ? '✅ Attended' : '⏳ Registered'}</span>
+        </div>`).join('')}
         ${!allPars.length?'<p style="color:var(--tx2)">No registrations yet.</p>':''}
-      </div>\`;
+      </div>`;
   }
 
   function renderScanner() {
-    document.getElementById('dashMain').innerHTML = \`
+    document.getElementById('dashMain').innerHTML = `
       <div class="dash-header"><h1>Scan Tickets 📷</h1><p>Hold the student's QR code up to the camera to instantly check them in.</p></div>
       <div class="section-box" style="text-align:center">
         <div id="reader" style="width:100%;max-width:500px;margin:1rem auto;border-radius:12px;overflow:hidden;border:1px solid var(--b2);background:#fff"></div>
-      </div>\`;
+      </div>`;
     
     setTimeout(() => {
       html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, false);
@@ -291,7 +282,7 @@
       const payload = JSON.parse(decodedText);
       if (!payload.eventId || !payload.studentId) throw new Error("Invalid Format");
       if (html5QrcodeScanner) html5QrcodeScanner.pause(true);
-      const res = await api('POST', '/events/' + payload.eventId + '/attendance', { studentId: payload.studentId }, true);
+      const res = await API.api('POST', '/events/' + payload.eventId + '/attendance', { studentId: payload.studentId }, true);
       toast(res.message || '✅ Student Checked In!', 'success');
       setTimeout(() => { if (html5QrcodeScanner) html5QrcodeScanner.resume(); window.isScanning = false; }, 3000);
     } catch (err) {
@@ -319,7 +310,7 @@
   async function renderClubProfile() {
     const el=document.getElementById('dashMain');
     if (!myClub) {
-      el.innerHTML=\`
+      el.innerHTML=`
       <div class="dash-header"><h1>Club Profile</h1></div>
       <div class="section-box">
         <p style="color:var(--tx2);margin-bottom:1.5rem">Register your club to get started.</p>
@@ -333,33 +324,33 @@
           <div class="form-group"><label class="form-label">Contact Phone *</label><input class="form-input" id="cPhone" placeholder="e.g. 9876543210"/></div>
           <div class="form-group g2-full"><button class="btn btn-lg btn-primary" id="cBtn" onclick="createClub()">Register Club</button></div>
         </div>
-      </div>\`;
+      </div>`;
       return;
     }
-    el.innerHTML=\`
+    el.innerHTML=`
       <div class="dash-header"><h1>Club Profile</h1></div>
       <div class="section-box">
         <div style="display:flex;align-items:center;gap:1.4rem;padding-bottom:1.8rem;margin-bottom:1.8rem;border-bottom:1px solid var(--b1)">
           <div style="width:68px;height:68px;border-radius:18px;background:rgba(124,107,255,.15);display:flex;align-items:center;justify-content:center;font-size:2rem">🏢</div>
-          <div><h2 style="font-family:'Syne',sans-serif;font-size:1.25rem;font-weight:800">\${myClub.clubName}</h2><p style="color:var(--tx2)">\${myClub.category}</p>
-          <span class="tag \${myClub.isApproved?'tag-gn':'tag-am'}" style="margin-top:.4rem;display:inline-flex">\${myClub.isApproved?'✅ Approved':'⏳ Pending Approval'}</span></div>
+          <div><h2 style="font-family:'Syne',sans-serif;font-size:1.25rem;font-weight:800">${myClub.clubName}</h2><p style="color:var(--tx2)">${myClub.category}</p>
+          <span class="tag ${myClub.isApproved?'tag-gn':'tag-am'}" style="margin-top:.4rem;display:inline-flex">${myClub.isApproved?'✅ Approved':'⏳ Pending Approval'}</span></div>
         </div>
         <div class="g2">
-          <div class="form-group g2-full"><label class="form-label">Club Name</label><input class="form-input" id="upName" value="\${myClub.clubName}"/></div>
-          <div class="form-group g2-full"><label class="form-label">Description</label><textarea class="form-input" id="upDesc" rows="3">\${myClub.description}</textarea></div>
-          <div class="form-group"><label class="form-label">Contact Email</label><input class="form-input" id="upEmail" value="\${myClub.contactEmail||''}" placeholder="club@college.edu"/></div>
-          <div class="form-group"><label class="form-label">Contact Phone</label><input class="form-input" id="upPhone" value="\${myClub.contactPhone||''}" placeholder="9876543210"/></div>
-          <div class="form-group"><label class="form-label">Instagram</label><input class="form-input" id="upIG" value="\${myClub.socialLinks?.instagram||''}" placeholder="@yourclub"/></div>
-          <div class="form-group"><label class="form-label">Website</label><input class="form-input" id="upWeb" value="\${myClub.socialLinks?.website||''}" placeholder="https://…"/></div>
+          <div class="form-group g2-full"><label class="form-label">Club Name</label><input class="form-input" id="upName" value="${myClub.clubName}"/></div>
+          <div class="form-group g2-full"><label class="form-label">Description</label><textarea class="form-input" id="upDesc" rows="3">${myClub.description}</textarea></div>
+          <div class="form-group"><label class="form-label">Contact Email</label><input class="form-input" id="upEmail" value="${myClub.contactEmail||''}" placeholder="club@college.edu"/></div>
+          <div class="form-group"><label class="form-label">Contact Phone</label><input class="form-input" id="upPhone" value="${myClub.contactPhone||''}" placeholder="9876543210"/></div>
+          <div class="form-group"><label class="form-label">Instagram</label><input class="form-input" id="upIG" value="${myClub.socialLinks?.instagram||''}" placeholder="@yourclub"/></div>
+          <div class="form-group"><label class="form-label">Website</label><input class="form-input" id="upWeb" value="${myClub.socialLinks?.website||''}" placeholder="https://…"/></div>
           
           <div class="form-group g2-full"><label class="form-label">Gallery Images (Comma separated URLs)</label>
-            <textarea class="form-input" id="upGallery" rows="2" placeholder="https://img1.jpg, https://img2.jpg">\${(myClub.gallery || []).join(', ')}</textarea>
+            <textarea class="form-input" id="upGallery" rows="2" placeholder="https://img1.jpg, https://img2.jpg">${(myClub.gallery || []).join(', ')}</textarea>
             <p style="font-size:0.75rem;color:var(--tx2);margin-top:0.3rem">Add links to your past event photos. Comma separated.</p>
           </div>
 
           <div class="form-group g2-full"><button class="btn btn-md btn-primary" onclick="updateClub()">Save Changes</button></div>
         </div>
-      </div>\`;
+      </div>`;
   }
 
   async function createClub() {
@@ -402,102 +393,60 @@
     } catch (err) { toast(err.message,'error'); btn.disabled=false; }
   }
 
-  window.renderEditForm = function(id) {
-    const ev = myEvents.find(e => e._id === id);
+  window.previewImg = function(input, previewId, textId) {
+    if (input.files && input.files[0]) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById(previewId).innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover"/>`;
+      }
+      reader.readAsDataURL(input.files[0]);
+    }
+  }
+
+  function renderEditForm(id) {
+    const ev = myEvents.find(e=>e._id===id);
     if (!ev) return;
-    document.getElementById('dashMain').innerHTML = \`
-      <div class="dash-header"><h1>Edit Event</h1><p>Updating: \${ev.title}</p></div>
+    document.getElementById('dashMain').innerHTML = `
+      <div class="dash-header"><h1>Edit Event</h1></div>
       <div class="section-box">
         <div class="g2">
-          <div class="form-group g2-full"><label class="form-label">Event Title</label><input class="form-input" id="edTitle" value="\${ev.title}"/></div>
-          <div class="form-group g2-full"><label class="form-label">Description</label><textarea class="form-input" id="edDesc" rows="3">\${ev.description}</textarea></div>
-          <div class="form-group"><label class="form-label">Venue</label><input class="form-input" id="edVenue" value="\${ev.venue}"/></div>
-          <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="edDate" value="\${ev.date.split('T')[0]}"/></div>
-          <div class="form-group"><label class="form-label">Time</label><input class="form-input" type="time" id="edTime" value="\${ev.time}"/></div>
-          <div class="form-group"><label class="form-label">Deadline</label><input class="form-input" type="date" id="edDeadline" value="\${ev.registrationDeadline.split('T')[0]}"/></div>
-          <div class="form-group g2-full"><label class="form-label">Guests (Comma separated)</label><textarea class="form-input" id="edGuests" rows="2">\${(ev.guests || []).join(', ')}</textarea></div>
-          <div class="form-group g2-full">
-            <label class="form-label">Event Poster</label>
-            <div style="display:flex;gap:1.5rem;align-items:flex-start">
-              <div id="editPosterPreview" style="width:120px;height:160px;background:var(--s1);border:1px dashed var(--b2);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden">
-                \${ev.posterURL ? \`<img src="\${ev.posterURL}" style="width:100%;height:100%;object-fit:cover"/>\` : '<span style="font-size:.7rem;color:var(--tx2)">No Image</span>'}
-              </div>
-              <div style="flex:1">
-                <input type="file" id="edPoster" accept="image/*" style="display:none" onchange="previewImg(this, 'editPosterPreview')"/>
-                <button class="btn btn-sm btn-ghost" onclick="document.getElementById('edPoster').click()">🔄 Change Poster</button>
-                <p style="font-size:.7rem;color:var(--tx2);margin-top:.4rem">Keep existing or upload new.</p>
-              </div>
-            </div>
+          <div class="form-group g2-full"><label class="form-label">Event Title *</label><input class="form-input" id="editTitle" value="${ev.title}"/></div>
+          <div class="form-group g2-full"><label class="form-label">Description *</label><textarea class="form-input" id="editDesc" rows="3">${ev.description}</textarea></div>
+          <div class="form-group"><label class="form-label">Category *</label>
+            <select class="form-select" id="editCat">
+              ${['Technical','Cultural','Sports','Hackathons','Workshops','Entrepreneurship','Arts'].map(c=>`<option ${ev.category===c?'selected':''}>${c}</option>`).join('')}
+            </select>
           </div>
-          <div class="form-group"><label class="form-label">Fee (₹)</label><input class="form-input" type="number" id="edFee" value="\${ev.participationFee}"/></div>
-          <div class="form-group"><label class="form-label">Max Capacity</label><input class="form-input" type="number" id="edMax" value="\${ev.maxParticipants || 100}"/></div>
-          <div class="form-group"><label class="form-label">Coordinator Name</label><input class="form-input" id="edCoordName" value="\${ev.coordinatorName || ''}"/></div>
-          <div class="form-group"><label class="form-label">Coordinator Contact</label><input class="form-input" id="edCoordPhone" value="\${ev.coordinatorPhone || ''}"/></div>
-          <div class="form-group g2-full"><button class="btn btn-lg btn-primary" id="saveEditBtn" onclick="saveEditEvent('\${ev._id}')">Save Changes</button> <button class="btn btn-lg btn-ghost" onclick="go('events')">Cancel</button></div>
+          <div class="form-group"><label class="form-label">Venue *</label><input class="form-input" id="editVenue" value="${ev.venue}"/></div>
+          <div class="form-group"><label class="form-label">Date *</label><input class="form-input" type="date" id="editDate" value="${ev.date.split('T')[0]}"/></div>
+          <div class="form-group"><label class="form-label">Time *</label><input class="form-input" type="time" id="editTime" value="${ev.time}"/></div>
+          <div class="form-group"><label class="form-label">Registration Deadline *</label><input class="form-input" type="date" id="editDeadline" value="${ev.registrationDeadline.split('T')[0]}"/></div>
+          <div class="form-group"><label class="form-label">Active Status</label>
+            <select class="form-select" id="editActive"><option value="true" ${ev.isActive?'selected':''}>Active</option><option value="false" ${!ev.isActive?'selected':''}>Draft / Hidden</option></select>
+          </div>
+          <div class="form-group g2-full"><button class="btn btn-lg btn-primary" onclick="saveEvent('${id}')">Save Changes</button></div>
         </div>
-      </div>\`;
+      </div>`;
   }
 
-  window.saveEditEvent = async function(id) {
-    const title = document.getElementById('edTitle').value.trim();
-    const description = document.getElementById('edDesc').value.trim();
-    const venue = document.getElementById('edVenue').value.trim();
-    const date = document.getElementById('edDate').value;
-    const time = document.getElementById('edTime').value;
-    const registrationDeadline = document.getElementById('edDeadline').value;
-    const participationFee = +document.getElementById('edFee').value;
-    const maxParticipants = +document.getElementById('edMax').value;
-    const guests = document.getElementById('edGuests').value.trim();
-    const coordinatorName = document.getElementById('edCoordName').value.trim();
-    const coordinatorPhone = document.getElementById('edCoordPhone').value.trim();
-
-    const btn = document.getElementById('saveEditBtn');
-    btn.disabled = true; btn.textContent = 'Updating...';
-
-    const formData = new FormData();
-    formData.append('title', title);
-    formData.append('description', description);
-    formData.append('venue', venue);
-    formData.append('date', date);
-    formData.append('time', time);
-    formData.append('registrationDeadline', registrationDeadline);
-    formData.append('participationFee', participationFee);
-    formData.append('maxParticipants', maxParticipants);
-    formData.append('guests', guests);
-    formData.append('coordinatorName', coordinatorName);
-    formData.append('coordinatorPhone', coordinatorPhone);
-    const edPoster = document.getElementById('edPoster').files[0];
-    if (edPoster) formData.append('poster', edPoster);
+  async function saveEvent(id) {
+    const title=document.getElementById('editTitle').value.trim();
+    const description=document.getElementById('editDesc').value.trim();
+    const category=document.getElementById('editCat').value;
+    const venue=document.getElementById('editVenue').value.trim();
+    const date=document.getElementById('editDate').value;
+    const time=document.getElementById('editTime').value;
+    const registrationDeadline=document.getElementById('editDeadline').value;
+    const isActive = document.getElementById('editActive').value === 'true';
 
     try {
-      await API.updateEvent(id, formData);
-      toast('Event updated successfully!', 'success');
+      await API.updateEvent(id, { title, description, category, venue, date, time, registrationDeadline, isActive });
+      toast('Event updated!','success');
       await loadClubData(); go('events');
-    } catch (err) { toast(err.message, 'error'); btn.disabled = false; btn.textContent = 'Save Changes'; }
+    } catch (err) { toast(err.message,'error'); }
   }
 
-  window.previewImg = function(input, targetId, textId) {
-    const file = input.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      const target = document.getElementById(targetId);
-      target.innerHTML = \`<img src="\${e.target.result}" style="width:100%;height:100%;object-fit:cover"/>\`;
-      if (textId) {
-        const txt = document.getElementById(textId);
-        if (txt) txt.style.display = 'none';
-      }
-    };
-    reader.readAsDataURL(file);
-  }
-
-  async function init() {
-    await loadClubData();
-    buildSidebar();
-    go('overview');
-  }
-
-  init();
+  go('overview');
 </script>
 </body>
 </html>
