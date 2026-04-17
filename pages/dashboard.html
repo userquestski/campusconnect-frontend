@@ -204,12 +204,15 @@
       const renderCard = (ev, isGlowing = false) => {
         const isReg = registeredIds.includes(ev._id);
         const pct = ev.maxParticipants ? Math.round((ev.registeredStudents.length / ev.maxParticipants) * 100) : 0;
+        const poster = ev.posterURL ? `<img src="${ev.posterURL}" style="width:100%;height:100%;object-fit:cover"/>` : 
+          (() => {
+            const icons = { 'Technical': '💻', 'Cultural': '🎭', 'Sports': '🏆', 'Hackathons': '🚀', 'Workshops': '🛠️', 'Entrepreneurship': '💡', 'Arts': '🎨' };
+            return icons[ev.category] || '🎯';
+          })();
+
         return `<div class="event-card" style="${isGlowing?'border:2px solid var(--v);box-shadow:0 8px 25px rgba(124,107,255,.15)':''}">
-          <div class="ec-img" style="background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:3.5rem"> 
-            ${(() => {
-              const icons = { 'Technical': '💻', 'Cultural': '🎭', 'Sports': '🏆', 'Hackathons': '🚀', 'Workshops': '🛠️', 'Entrepreneurship': '💡', 'Arts': '🎨' };
-              return icons[ev.category] || '🎯';
-            })()}
+          <div class="ec-img" style="background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:3.5rem;overflow:hidden;position:relative"> 
+            ${poster}
             <div style="position:absolute;top:.8rem;left:.8rem">${catTag(ev.category)}</div>
             <div style="position:absolute;top:.8rem;right:.8rem"><span class="tag ${ev.participationFee===0?'tag-gn':'tag-am'}">${ev.participationFee===0?'Free':'₹'+ev.participationFee}</span></div>
           </div>

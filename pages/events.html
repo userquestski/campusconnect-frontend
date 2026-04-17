@@ -117,11 +117,12 @@
       }
 
       return `<div class="event-card" onclick="openModal('${ev._id}')">
-        <div class="ec-img" style="background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:3.5rem"> 
-          ${(() => {
-            const icons = { 'Technical': '💻', 'Cultural': '🎭', 'Sports': '🏆', 'Hackathons': '🚀', 'Workshops': '🛠️', 'Entrepreneurship': '💡', 'Arts': '🎨' };
-            return icons[ev.category] || '🎯';
-          })()}
+        <div class="ec-img" style="background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:3.5rem;overflow:hidden;position:relative"> 
+          ${ev.posterURL ? `<img src="${ev.posterURL}" style="width:100%;height:100%;object-fit:cover"/>` : 
+            (() => {
+              const icons = { 'Technical': '💻', 'Cultural': '🎭', 'Sports': '🏆', 'Hackathons': '🚀', 'Workshops': '🛠️', 'Entrepreneurship': '💡', 'Arts': '🎨' };
+              return icons[ev.category] || '🎯';
+            })()}
           <div style="position:absolute;top:.8rem;right:.8rem"><span class="tag ${ev.participationFee===0?'tag-gn':'tag-am'}">${ev.participationFee===0?'Free':'₹'+ev.participationFee}</span></div>
         </div>
         <div class="ec-body">
@@ -311,11 +312,12 @@
     document.getElementById('mTitle').textContent = ev.title;
     document.getElementById('mBody').innerHTML = `
       <div class="modal-body">
-      <div style="width:100%;height:200px;background:var(--s2);border-radius:12px;margin-bottom:1.5rem;display:flex;align-items:center;justify-content:center;font-size:4.5rem">
-        ${(() => {
-          const icons = { 'Technical': '💻', 'Cultural': '🎭', 'Sports': '🏆', 'Hackathons': '🚀', 'Workshops': '🛠️', 'Entrepreneurship': '💡', 'Arts': '🎨' };
-          return icons[ev.category] || '🎯';
-        })()}
+      <div style="width:100%;height:200px;background:var(--s2);border-radius:12px;margin-bottom:1.5rem;display:flex;align-items:center;justify-content:center;font-size:4.5rem;overflow:hidden">
+        ${ev.posterURL ? `<img src="${ev.posterURL}" style="width:100%;height:100%;object-fit:cover"/>` : 
+          (() => {
+            const icons = { 'Technical': '💻', 'Cultural': '🎭', 'Sports': '🏆', 'Hackathons': '🚀', 'Workshops': '🛠️', 'Entrepreneurship': '💡', 'Arts': '🎨' };
+            return icons[ev.category] || '🎯';
+          })()}
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:1.4rem">${catTag(ev.category)}<span class="tag ${ev.participationFee===0?'tag-gn':'tag-am'}">${ev.participationFee===0?'Free':'₹'+ev.participationFee}</span></div>
       
