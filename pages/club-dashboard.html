@@ -42,10 +42,18 @@
   async function loadClubData() {
     try {
       const data = await API.getMyClub();
-      // The API returns the club object directly, with an 'events' property attached
-      myClub = data;
-      myEvents = data.events || [];
-    } catch (err) { console.error('Club error:', err); }
+      // Robust handling: accommodate both direct club objects and wrapped {club, events} responses
+      if (data.club) {
+        myClub = data.club;
+        myEvents = data.events || data.club.events || [];
+      } else {
+        myClub = data;
+        myEvents = data.events || [];
+      }
+    } catch (err) { 
+      console.error('Club error:', err);
+      if (err.message.includes('No club found')) myClub = null;
+    }
   }
 
   function buildSidebar() {
