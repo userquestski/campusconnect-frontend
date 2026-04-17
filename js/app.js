@@ -75,6 +75,7 @@ const API = {
 
   // Club Management
   getClubs: (q = '') => api('GET', `/clubs${q}`, null, Auth.isLoggedIn).then(r => r.clubs || r),
+  getAllClubs: () => api('GET', '/clubs', null, Auth.isLoggedIn).then(r => r.clubs || r),
   getClub: (id) => api('GET', `/clubs/${id}`, null, Auth.isLoggedIn),
   getMyClub: () => api('GET', '/clubs/my-club', null, true),
   createClub: (d) => api('POST', '/clubs', d, true),
