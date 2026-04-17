@@ -75,7 +75,9 @@
     buildSidebar();
     const el = document.getElementById('dashMain');
     loading(el);
-    if (!myClub && p!=='club') { await loadClubData(); }
+    
+    // Always fetch fresh data to ensure approval status is up-to-date
+    await loadClubData();
     
     if (p==='overview') renderOverview();
     if (p==='events') renderMyEvents();
