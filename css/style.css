@@ -243,3 +243,26 @@ footer{border-top: 1px solid var(--b1); padding: 4rem 0 2rem; margin-top: 4rem;}
   .btn-lg { padding: 0.7rem 1.4rem; font-size: 0.9rem; }
   .ec-body { padding: 1rem; }
 }
+
+/* ── LIGHTBOX (IMAGE FULLSCREEN) ────────────────────────── */
+.lightbox-bg {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.92); backdrop-filter: blur(8px);
+  z-index: 9999; display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity 0.3s ease; cursor: pointer;
+}
+.lb-content {
+  max-width: 90%; max-height: 90%; position: relative;
+}
+.lb-content img {
+  max-width: 100%; max-height: 90vh; border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5); cursor: default;
+}
+.lb-close {
+  position: absolute; top: 2rem; right: 2.5rem; color: #fff;
+  font-size: 2rem; font-weight: 300; cursor: pointer; transition: transform 0.2s;
+}
+.lb-close:hover { transform: scale(1.2); }
+@media (max-width: 768px) {
+  .lb-close { top: 1.5rem; right: 1.5rem; }
+}

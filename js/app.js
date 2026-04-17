@@ -212,3 +212,20 @@ window.addEventListener('DOMContentLoaded', () => {
   buildFooter(); // Inject footer HTML
   initReveal();  // Start scroll watcher
 });
+
+// ── UTILITY: LIGHTBOX ─────────────────────────────────────
+// Opens an image in a full-screen overlay (Perfect for posters)
+window.openLightbox = function(url) {
+  if (!url) return;
+  const lb = document.createElement('div');
+  lb.className = 'lightbox-bg';
+  lb.onclick = () => { lb.style.opacity='0'; setTimeout(()=>lb.remove(), 250); };
+  lb.innerHTML = `
+    <div class="lb-close">✕</div>
+    <div class="lb-content">
+      <img src="${url}" onclick="event.stopPropagation()" />
+    </div>`;
+  document.body.appendChild(lb);
+  // Trigger animation
+  setTimeout(() => lb.style.opacity = '1', 10);
+};

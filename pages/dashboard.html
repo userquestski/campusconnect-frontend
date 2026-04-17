@@ -204,7 +204,7 @@
       const renderCard = (ev, isGlowing = false) => {
         const isReg = registeredIds.includes(ev._id);
         const pct = ev.maxParticipants ? Math.round((ev.registeredStudents.length / ev.maxParticipants) * 100) : 0;
-        const poster = ev.posterURL ? `<img src="${ev.posterURL}" style="width:100%;height:100%;object-fit:cover"/>` : 
+        const poster = ev.posterURL ? `<img src="${ev.posterURL}" onclick="event.stopPropagation(); openLightbox(this.src)" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in" title="View full poster"/>` : 
           (() => {
             const icons = { 'Technical': '💻', 'Cultural': '🎭', 'Sports': '🏆', 'Hackathons': '🚀', 'Workshops': '🛠️', 'Entrepreneurship': '💡', 'Arts': '🎨' };
             return icons[ev.category] || '🎯';

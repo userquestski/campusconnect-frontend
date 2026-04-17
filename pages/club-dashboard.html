@@ -134,9 +134,11 @@
     document.getElementById('dashMain').innerHTML = `
       <div class="dash-header"><h1>My Events</h1><p>${myEvents.length} events</p></div>
       <div class="section-box">
-        <div class="box-title">All Events <button class="btn btn-sm btn-primary" onclick="go('create')">+ New Event</button></div>
+        <div class="box-title" style="display:flex;justify-content:space-between;align-items:center">All Events <button class="btn btn-sm btn-primary" onclick="go('create')">+ New Event</button></div>
         ${myEvents.map(ev=>`<div class="ev-row">
-          <div class="ev-ico">🎯</div>
+          <div class="ev-ico" style="overflow:hidden;background:var(--s2);display:flex;align-items:center;justify-content:center;cursor:pointer">
+            ${ev.posterURL ? `<img src="${ev.posterURL}" onclick="openLightbox(this.src)" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in" title="View poster"/>` : '🎯'}
+          </div>
           <div style="flex:1">
             <div style="font-size:.88rem;font-weight:600">${ev.title}</div>
             <div style="font-size:.75rem;color:var(--tx2)">📅 ${fDate(ev.date)} · ⏰ ${ev.time} · 📍 ${ev.venue}</div>
