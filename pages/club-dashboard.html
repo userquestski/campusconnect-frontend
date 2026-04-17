@@ -42,7 +42,8 @@
   async function loadClubData() {
     try {
       const data = await API.getMyClub();
-      myClub = data.club;
+      // The API returns the club object directly, with an 'events' property attached
+      myClub = data;
       myEvents = data.events || [];
     } catch (err) { console.error('Club error:', err); }
   }
