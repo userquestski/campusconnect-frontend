@@ -201,17 +201,74 @@
     const el=document.getElementById('dashMain');
     try {
       const users=await API.getAllUsers();
+      
+      // Separate users into groups
+      const admins = users.filter(u => u.role === 'clubAdmin');
+      const students = users.filter(u => u.role === 'student');
+
       el.innerHTML=`
-        <div class="dash-header"><h1>Manage Users</h1><p>${users.length} total users</p></div>
-        <div class="section-box">
-          ${users.map(u=>`<div class="row">
-            <div class="avatar av-sm">${u.name[0].toUpperCase()}</div>
-            <div style="flex:1"><div style="font-size:.88rem;font-weight:600">${u.name}</div><div style="font-size:.74rem;color:var(--tx2)">${u.email}</div></div>
-            <span class="tag ${u.role==='student'?'tag-v':u.role==='clubAdmin'?'tag-pk':'tag-am'}">${u.role}</span>
-            ${u._id!==Auth.user?._id?`<button class="btn btn-sm btn-danger" onclick="delUser('${u._id}',this)">Remove</button>`:'<span class="tag tag-tl">You</span>'}
-          </div>`).join('')}
+        <div class="dash-header">
+          <div><h1>Manage Users</h1><p>${users.length} total accounts</p></div>
+          <div style="position:relative;width:240px">
+            <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--tx2);font-size:.9rem">🔍</span>
+            <input type="text" class="form-input" style="padding-left:35px" placeholder="Search accounts..." onkeyup="filterUsers(this.value)"/>
+          </div>
+        </div>
+        
+        <div id="adminUsersList">
+          <!-- Club Admins Section -->
+          <div class="user-group-card" style="margin-bottom:2rem">
+            <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:1rem;padding-left:.5rem">
+              <div style="font-size:1.4rem">🛡️</div>
+              <h3 style="margin:0;font-size:1.1rem;letter-spacing:-0.02em">Club Admins</h3>
+              <span class="tag tag-pk" style="font-size:.7rem">${admins.length} accounts</span>
+            </div>
+            <div class="section-box" style="margin-top:0">
+              ${admins.map(u => renderUserRow(u)).join('')}
+              ${!admins.length?'<p style="color:var(--tx2);padding:1rem">No club admins found.</p>':''}
+            </div>
+          </div>
+
+          <!-- Students Section -->
+          <div class="user-group-card">
+            <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:1rem;padding-left:.5rem">
+              <div style="font-size:1.4rem">🎓</div>
+              <h3 style="margin:0;font-size:1.1rem;letter-spacing:-0.02em">Students</h3>
+              <span class="tag tag-v" style="font-size:.7rem">${students.length} accounts</span>
+            </div>
+            <div class="section-box" style="margin-top:0">
+              ${students.map(u => renderUserRow(u)).join('')}
+              ${!students.length?'<p style="color:var(--tx2);padding:1rem">No students found.</p>':''}
+            </div>
+          </div>
         </div>`;
     } catch (err) { document.getElementById('dashMain').innerHTML=`<p style="color:var(--rd)">${err.message}</p>`; }
+  }
+
+  // Helper to keep user row code clean
+  function renderUserRow(u) {
+    return `<div class="row user-row" data-name="${u.name.toLowerCase()} ${u.email.toLowerCase()}">
+      <div class="avatar av-sm">${u.name[0].toUpperCase()}</div>
+      <div style="flex:1">
+        <div style="font-size:.88rem;font-weight:600">${u.name}</div>
+        <div style="font-size:.74rem;color:var(--tx2)">${u.email}</div>
+      </div>
+      <span class="tag ${u.role==='student'?'tag-v':u.role==='clubAdmin'?'tag-pk':'tag-am'}">${u.role}</span>
+      ${u._id!==Auth.user?._id?`<button class="btn btn-sm btn-danger" onclick="delUser('${u._id}',this)">Remove</button>`:'<span class="tag tag-tl">You</span>'}
+    </div>`;
+  }
+
+  window.filterUsers = function(q) {
+    const query = q.toLowerCase();
+    document.querySelectorAll('.user-row').forEach(row => {
+      const name = row.getAttribute('data-name');
+      row.style.display = name.includes(query) ? 'flex' : 'none';
+    });
+    // Hide empty group cards
+    document.querySelectorAll('.user-group-card').forEach(card => {
+      const visible = Array.from(card.querySelectorAll('.user-row')).filter(r => r.style.display !== 'none');
+      card.style.display = visible.length > 0 ? 'block' : 'none';
+    });
   }
 
   async function approve(id, btn) {
