@@ -417,6 +417,19 @@
               ${['Technical','Cultural','Sports','Hackathons','Workshops','Entrepreneurship','Arts'].map(c=>`<option ${ev.category===c?'selected':''}>${c}</option>`).join('')}
             </select>
           </div>
+          <div class="form-group g2-full">
+            <label class="form-label">Change Event Poster (Optional)</label>
+            <div style="display:flex;gap:1.5rem;align-items:flex-start">
+              <div id="editPosterPreview" style="width:120px;height:160px;background:var(--s1);border:1px dashed var(--b2);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden">
+                ${ev.posterURL ? `<img src="${ev.posterURL}" style="width:100%;height:100%;object-fit:cover"/>` : `<span id="editPreviewText" style="font-size:.7rem;color:var(--tx2);text-align:center;padding:0 .5rem">No Image</span>`}
+              </div>
+              <div style="flex:1">
+                <input type="file" id="editPoster" accept="image/*" style="display:none" onchange="previewImg(this, 'editPosterPreview', 'editPreviewText')"/>
+                <button class="btn btn-sm btn-ghost" onclick="document.getElementById('editPoster').click()">📁 Change Image</button>
+                <p style="font-size:.7rem;color:var(--tx2);margin-top:.4rem">Leave empty to keep the current poster.</p>
+              </div>
+            </div>
+          </div>
           <div class="form-group"><label class="form-label">Venue *</label><input class="form-input" id="editVenue" value="${ev.venue}"/></div>
           <div class="form-group"><label class="form-label">Date *</label><input class="form-input" type="date" id="editDate" value="${ev.date.split('T')[0]}"/></div>
           <div class="form-group"><label class="form-label">Time *</label><input class="form-input" type="time" id="editTime" value="${ev.time}"/></div>
@@ -424,7 +437,10 @@
           <div class="form-group"><label class="form-label">Active Status</label>
             <select class="form-select" id="editActive"><option value="true" ${ev.isActive?'selected':''}>Active</option><option value="false" ${!ev.isActive?'selected':''}>Draft / Hidden</option></select>
           </div>
-          <div class="form-group g2-full"><button class="btn btn-lg btn-primary" onclick="saveEvent('${id}')">Save Changes</button></div>
+          <div class="form-group g2-full" style="display:flex;gap:.8rem;margin-top:.5rem">
+            <button class="btn btn-lg btn-primary" id="saveBtn" onclick="saveEvent('${id}')">Save Changes</button>
+            <button class="btn btn-lg btn-ghost" onclick="go('events')">Cancel</button>
+          </div>
         </div>
       </div>`;
   }
@@ -438,12 +454,30 @@
     const time=document.getElementById('editTime').value;
     const registrationDeadline=document.getElementById('editDeadline').value;
     const isActive = document.getElementById('editActive').value === 'true';
+    const posterFile = document.getElementById('editPoster').files[0];
+
+    const btn = document.getElementById('saveBtn'); 
+    btn.textContent = 'Saving...'; btn.disabled = true;
+
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('description', description);
+    formData.append('category', category);
+    formData.append('venue', venue);
+    formData.append('date', date);
+    formData.append('time', time);
+    formData.append('registrationDeadline', registrationDeadline);
+    formData.append('isActive', isActive);
+    if (posterFile) formData.append('poster', posterFile);
 
     try {
-      await API.updateEvent(id, { title, description, category, venue, date, time, registrationDeadline, isActive });
+      await API.updateEvent(id, formData);
       toast('Event updated!','success');
       await loadClubData(); go('events');
-    } catch (err) { toast(err.message,'error'); }
+    } catch (err) { 
+      toast(err.message,'error'); 
+      btn.textContent = 'Save Changes'; btn.disabled = false;
+    }
   }
 
   go('overview');
