@@ -182,6 +182,7 @@
                     <span class="tag tag-gn" style="white-space:nowrap">${ev.registeredStudents?.length||0} reg</span>
                     <div style="display:flex;gap:.5rem">
                       <button class="btn btn-sm btn-ghost" style="background:rgba(124,107,255,.1);color:var(--v);font-weight:600" onclick="viewEvPars('${ev._id}')">📋 List</button>
+                      <button class="btn btn-sm btn-ghost" title="Download CSV" onclick="exportEvCSV('${ev._id}')">📥 CSV</button>
                       <button class="btn btn-sm btn-danger" onclick="delEvent('${ev._id}',this)">Remove</button>
                     </div>
                   </div>`).join('')}
@@ -318,15 +319,17 @@
           <button class="modal-close" onclick="document.getElementById('parsModal').remove()">✕</button>
         </div>
         <div style="max-height:60vh;overflow-y:auto;padding:1.5rem">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;gap:1rem;flex-wrap:wrap">
             <p style="color:var(--tx2);font-size:.85rem;margin:0">Total Registrations: <strong>${pars.length}</strong></p>
-            <button class="btn btn-sm btn-success" onclick="exportEvCSV('${ev._id}')">⬇️ Download CSV for Faculty</button>
+            <div style="display:flex;gap:.5rem">
+              <button class="btn btn-sm btn-success" onclick="exportEvAttendedCSV('${ev._id}')">✅ Attended</button>
+              <button class="btn btn-sm btn-am" style="background:var(--am);color:#fff" onclick="exportEvPendingCSV('${ev._id}')">⏳ Pending</button>
+              <button class="btn btn-sm btn-ghost" onclick="exportEvCSV('${ev._id}')">⬇️ All</button>
+            </div>
           </div>
           <table style="width:100%;text-align:left;border-collapse:collapse;font-size:.85rem">
             <tr style="border-bottom:1px solid var(--b1)">
-              <th style="padding:.6rem .4rem;color:var(--tx2)">Roll No</th>
-              <th style="padding:.6rem .4rem;color:var(--tx2)">Name</th>
-              <th style="padding:.6rem .4rem;color:var(--tx2)">Phone</th>
+              <th style="padding:.6rem .4rem;color:var(--tx2)">Department</th>
               <th style="padding:.6rem .4rem;color:var(--tx2)">Email</th>
             </tr>
             ${pars.map(p => `
@@ -334,6 +337,7 @@
                 <td style="padding:.6rem .4rem;font-weight:600;color:var(--v)">${p.rollNo||'N/A'}</td>
                 <td style="padding:.6rem .4rem">${p.name}</td>
                 <td style="padding:.6rem .4rem">${p.phone||'N/A'}</td>
+                <td style="padding:.6rem .4rem">${p.department||'N/A'}</td>
                 <td style="padding:.6rem .4rem;color:var(--tx2)">${p.email}</td>
               </tr>
             `).join('')}
@@ -345,18 +349,46 @@
 
   window.exportEvCSV = function(id) {
     const ev = allAdminEvents.find(e=>e._id===id);
-    if (!ev || !ev.registeredStudents) return;
+    if (!ev || !ev.registeredStudents || !ev.registeredStudents.length) return toast('No students registered for this event yet.', 'info');
+    
     const clubName = ev.clubId?.clubName || 'Unknown Club';
     const csvRows = ev.registeredStudents.map(p => 
-      `"${p.email||''}","${p.phone||'N/A'}","${p.rollNo||'N/A'}","${clubName}"`
+      `"${p.name||'N/A'}","${p.rollNo||'N/A'}","${p.department||'N/A'}","${p.phone||'N/A'}","${p.email||''}","${clubName}"`
     );
-    const csv = "Email,Phone Number,Roll Number,Club Name\n" + csvRows.join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const header = "Student Name,Roll Number,Department,Phone Number,Email,Club Name\n";
+    _downloadCSV(header + csvRows.join('\n'), `${ev.title.toLowerCase()}_all_students.csv`);
+    toast('Event registration report downloaded!', 'success');
+  };
+
+  window.exportEvAttendedCSV = function(id) {
+    const ev = allAdminEvents.find(e=>e._id===id);
+    if (!ev || !ev.registeredStudents) return;
+    const list = ev.registeredStudents.filter(s => (ev.attendedStudents||[]).includes(s._id));
+    if (!list.length) return toast('No students checked in yet.', 'info');
+    const csvRows = list.map(p => `"${p.name||''}","${p.rollNo||'N/A'}","${p.department||'N/A'}","${p.phone||'N/A'}","${p.email||''}"`);
+    const header = "Student Name,Roll Number,Department,Phone,Email\n";
+    _downloadCSV(header + csvRows.join('\n'), `${ev.title.toLowerCase()}_attended.csv`);
+    toast('Attended list downloaded!', 'success');
+  };
+
+  window.exportEvPendingCSV = function(id) {
+    const ev = allAdminEvents.find(e=>e._id===id);
+    if (!ev || !ev.registeredStudents) return;
+    const list = ev.registeredStudents.filter(s => !(ev.attendedStudents||[]).includes(s._id));
+    if (!list.length) return toast('No pending students found.', 'info');
+    const csvRows = list.map(p => `"${p.name||''}","${p.rollNo||'N/A'}","${p.department||'N/A'}","${p.phone||'N/A'}","${p.email||''}"`);
+    const header = "Student Name,Roll Number,Department,Phone,Email\n";
+    _downloadCSV(header + csvRows.join('\n'), `${ev.title.toLowerCase()}_pending.csv`);
+    toast('Pending list downloaded!', 'success');
+  };
+
+  function _downloadCSV(content, filename) {
+    const blob = new Blob([content], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `${ev.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_participants.csv`;
+    a.href = url; a.download = filename.replace(/\s+/g, '_');
     a.click();
-  };
+  }
 
   window.exportClubCSV = function(clubId) {
     const clubEvents = allAdminEvents.filter(e => e.clubId?._id === clubId);
@@ -369,8 +401,8 @@
       clubName = ev.clubId?.clubName || clubName;
       if (ev.registeredStudents) {
         ev.registeredStudents.forEach(p => {
-          if (!participants.has(p.email)) {
-            participants.set(p.email, p);
+          if (!participants.has(p._id)) {
+            participants.set(p._id, p);
           }
         });
       }
@@ -379,14 +411,16 @@
     if (participants.size === 0) return toast('No registrations found for this club', 'info');
 
     const csvRows = Array.from(participants.values()).map(p => 
-      `"${p.email||''}","${p.phone||'N/A'}","${p.rollNo||'N/A'}","${clubName}"`
+      `"${p.name||'N/A'}","${p.rollNo||'N/A'}","${p.department||'N/A'}","${p.phone||'N/A'}","${p.email||''}","${clubName}"`
     );
-    const csv = "Email,Phone Number,Roll Number,Club Name\n" + csvRows.join('\n');
+    const header = "Student Name,Roll Number,Department,Phone Number,Email,Club Name\n";
+    const csv = header + csvRows.join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `${clubName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_all_students.csv`;
+    a.href = url; a.download = `${clubName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_full_report.csv`;
     a.click();
+    toast(`${clubName} report downloaded!`, 'success');
   };
 
   window.exportCategorizedCSV = function() {

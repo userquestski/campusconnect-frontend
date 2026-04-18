@@ -51,6 +51,7 @@
   const CATS = ['All','Technical','Cultural','Sports','Hackathons','Workshops','Entrepreneurship','Arts'];
   let allEvents = [];
   let activeCat = new URLSearchParams(window.location.search).get('cat') || 'All';
+  let activeClubId = new URLSearchParams(window.location.search).get('clubId');
   let search = '', sort = 'date';
 
   // Build pills
@@ -83,6 +84,7 @@
   function getFiltered() {
     let list = [...allEvents];
     if (activeCat!=='All') list = list.filter(e=>e.category===activeCat);
+    if (activeClubId) list = list.filter(e => (e.clubId?._id || e.clubId) === activeClubId);
     if (search) list = list.filter(e=>e.title.toLowerCase().includes(search)||(e.clubId?.clubName||'').toLowerCase().includes(search));
     if (sort==='popular') list.sort((a,b)=>b.registeredStudents.length-a.registeredStudents.length);
     else if (sort==='free') list.sort((a,b)=>a.participationFee-b.participationFee);
@@ -99,7 +101,14 @@
   function render() {
     const list = getFiltered();
     const grid = document.getElementById('eventsGrid');
-    document.getElementById('resultsInfo').textContent = `${list.length} event${list.length!==1?'s':''} found`;
+    const info = document.getElementById('resultsInfo');
+    
+    let infoText = `${list.length} event${list.length!==1?'s':''} found`;
+    if (activeClubId && list.length > 0) {
+      infoText += ` for <strong>${list[0].clubId?.clubName || 'Selected Club'}</strong> <button class="btn btn-ghost" style="padding:0 .4rem;font-size:0.7rem;margin-left:.5rem" onclick="activeClubId=null;render()">Clear Filter</button>`;
+    }
+    info.innerHTML = infoText;
+
     if (!list.length) { empty(grid,'No events found. Try a different filter.'); return; }
 
     grid.innerHTML = list.map(ev => {

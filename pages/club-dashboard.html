@@ -156,7 +156,7 @@
           </div>
           <div style="text-align:center;margin-right:.5rem"><div style="font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:800">${ev.registeredStudents?.length||0}</div><div style="font-size:.7rem;color:var(--tx2)">registered</div></div>
           <div style="display:flex;flex-direction:column;gap:.4rem">
-            <button class="btn btn-sm btn-primary" onclick="renderEditForm('${ev._id}')">Edit</button>
+            <button class="btn btn-sm btn-ghost" style="color:var(--v);font-weight:600" onclick="exportEvCSV('${ev._id}')">📥 CSV</button>
             <button class="btn btn-sm btn-danger" onclick="delEvent('${ev._id}',this)">Delete</button>
           </div>
         </div>`).join('')}
@@ -302,9 +302,10 @@
       document.getElementById('dashMain').innerHTML = `
         <div class="dash-header" style="display:flex;justify-content:space-between;align-items:flex-end">
           <div><h1>Participants</h1><p>${allParsCount} total registrations across your events</p></div>
-          <div style="display:flex;gap:.6rem">
-            <button class="btn btn-sm btn-primary" onclick="exportAttendanceCSV()">📊 Attendance Report</button>
-            <button class="btn btn-sm btn-success" onclick="exportClubCSV()">⬇️ Export CSV</button>
+          <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+            <button class="btn btn-sm btn-success" onclick="exportAttendedCSV()">✅ Attended List</button>
+            <button class="btn btn-sm btn-am" style="background:var(--am);color:#fff" onclick="exportPendingCSV()">⏳ Pending List</button>
+            <button class="btn btn-sm btn-ghost" onclick="exportClubCSV()">⬇️ Export All</button>
           </div>
         </div>
         <div id="attendanceBoardContainer">${getLiveAttendanceHTML()}</div>`;
@@ -371,42 +372,61 @@
 
   function onScanFailure(error) {}
 
-  window.exportAttendanceCSV = function() {
-    // Collect ONLY students who have 'attendedStudents' entry in myEvents
-    const attendedList = myEvents.flatMap(ev => (ev.registeredStudents||[]).filter(s => (ev.attendedStudents||[]).includes(s._id)).map(s => ({
+  window.exportAttendedCSV = function() {
+    const list = myEvents.flatMap(ev => (ev.registeredStudents||[]).filter(s => (ev.attendedStudents||[]).includes(s._id)).map(s => ({
       ...s, eventTitle: ev.title
     })));
-    
-    if (!attendedList.length) return toast('No students have been scanned/checked-in yet.', 'info');
-    
-    const csvRows = attendedList.map(p => `"${p.eventTitle}","${p.rollNo||'N/A'}","${p.name||''}","${p.department||'N/A'}","${p.email||''}","PRESENT"`);
-    const header = "Event Name,Roll Number,Student Name,Department,Email,Attendance Status\n";
-    const csv = header + csvRows.join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `${myClub.clubName.replace(/\s+/g, '_').toLowerCase()}_attendance_report.csv`;
-    a.click();
-    toast('Attendance report downloaded!', 'success');
+    if (!list.length) return toast('No students have checked in yet.', 'info');
+    const csvRows = list.map(p => `"${p.name||''}","${p.rollNo||'N/A'}","${p.department||'N/A'}","${p.eventTitle}","${p.email||''}","PRESENT"`);
+    const header = "Student Name,Roll Number,Department,Event Name,Email,Status\n";
+    _downloadCSV(header + csvRows.join('\n'), `${myClub.clubName.toLowerCase()}_attended_list.csv`);
+    toast('Attended list downloaded!', 'success');
+  };
+
+  window.exportPendingCSV = function() {
+    const list = myEvents.flatMap(ev => (ev.registeredStudents||[]).filter(s => !(ev.attendedStudents||[]).includes(s._id)).map(s => ({
+      ...s, eventTitle: ev.title
+    })));
+    if (!list.length) return toast('No pending students found.', 'info');
+    const csvRows = list.map(p => `"${p.name||''}","${p.rollNo||'N/A'}","${p.department||'N/A'}","${p.eventTitle}","${p.email||''}","PENDING"`);
+    const header = "Student Name,Roll Number,Department,Event Name,Email,Status\n";
+    _downloadCSV(header + csvRows.join('\n'), `${myClub.clubName.toLowerCase()}_pending_list.csv`);
+    toast('Pending list downloaded!', 'success');
   };
 
   window.exportClubCSV = function() {
     const allPars = myEvents.flatMap(ev=>(ev.registeredStudents||[]).map(s=>({
       ...s, eventTitle:ev.title, didAttend: (ev.attendedStudents||[]).includes(s._id)
     })));
-    if (!allPars.length) return toast('No data to export', 'error');
-    const csvRows = allPars.map(p => `"${p.eventTitle}","${p.rollNo||'N/A'}","${p.name||''}","${p.department||'N/A'}","${p.email||''}","${p.didAttend?'Attended':'Registered'}"`);
-    const csv = "Event,RollNo,Name,Department,Email,Status\n" + csvRows.join('\n');
+    if (!allPars.length) return toast('No data to export', 'info');
+    const csvRows = allPars.map(p => `"${p.name||''}","${p.rollNo||'N/A'}","${p.department||'N/A'}","${p.eventTitle}","${p.email||''}","${p.didAttend?'Attended':'Registered'}"`);
+    const header = "Student Name,Roll Number,Department,Event,Email,Status\n";
+    _downloadCSV(header + csvRows.join('\n'), `${myClub.clubName.toLowerCase()}_full_report.csv`);
+    toast('Full report downloaded!', 'success');
+  };
+
+  function _downloadCSV(content, filename) {
+    const blob = new Blob([content], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename.replace(/\s+/g, '_');
+    a.click();
+  }
+
+  window.exportEvCSV = function(id) {
+    const ev = myEvents.find(e=>e._id===id);
+    if (!ev || !ev.registeredStudents || !ev.registeredStudents.length) return toast('No registrations for this event yet.', 'info');
+    const csvRows = ev.registeredStudents.map(p => `"${p.name||''}","${p.rollNo||'N/A'}","${p.department||'N/A'}","${p.phone||'N/A'}","${p.email||''}"`);
+    const header = "Student Name,Roll Number,Department,Phone,Email\n";
+    const csv = header + csvRows.join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = 'all_event_registrations.csv';
+    a.href = url; a.download = `${ev.title.replace(/\s+/g, '_').toLowerCase()}_participants.csv`;
     a.click();
+    toast('Event report downloaded!', 'success');
   };
 
-  function renderParticipants() {
-    // ... logic same as before ...
-  }
 
   async function renderClubProfile() {
     const el=document.getElementById('dashMain');
